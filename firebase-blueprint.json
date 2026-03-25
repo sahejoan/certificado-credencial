@@ -1,0 +1,87 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile with role-based access control.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string", "format": "uri" },
+        "role": { "type": "string", "enum": ["admin", "editor", "viewer"] },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Event": {
+      "title": "Event",
+      "description": "Event details and templates.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "location": { "type": "string" },
+        "description": { "type": "string" },
+        "authorities": { "type": "array", "items": { "type": "string" } },
+        "certificateTemplate": { "type": "object" },
+        "credentialTemplate": { "type": "object" },
+        "createdAt": { "type": "number" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["id", "name", "date", "createdBy"]
+    },
+    "Participant": {
+      "title": "Participant",
+      "description": "Participant registered for an event.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "eventId": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "idNumber": { "type": "string", "description": "Cédula de Identidad" },
+        "role": { 
+          "type": "string", 
+          "enum": ["asistente", "docente", "estudiante", "logistica", "organizador", "ponente", "protocolo", "tecnico_informatico"] 
+        },
+        "registrationDate": { "type": "number" },
+        "attended": { "type": "boolean" }
+      },
+      "required": ["id", "eventId", "name", "email", "idNumber"]
+    },
+    "Authority": {
+      "title": "Authority",
+      "description": "Signing authority details.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "organization": { "type": "string" },
+        "signatureUrl": { "type": "string", "format": "uri", "description": "Digital signature image URL" },
+        "isSignatureActive": { "type": "boolean", "description": "Whether the digital signature is currently active for use." }
+      },
+      "required": ["id", "name", "role"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "User",
+      "description": "User profiles collection."
+    },
+    "/events/{eventId}": {
+      "schema": "Event",
+      "description": "Events collection."
+    },
+    "/participants/{participantId}": {
+      "schema": "Participant",
+      "description": "Participants collection."
+    },
+    "/authorities/{authorityId}": {
+      "schema": "Authority",
+      "description": "Global authorities collection."
+    }
+  }
+}

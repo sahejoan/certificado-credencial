@@ -1,0 +1,192 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: uid
+    // Fields:
+    //   - uid: string (required, immutable) - Firebase Auth UID
+    //   - email: string (required, immutable) - User email
+    //   - displayName: string (optional) - User display name
+    //   - photoURL: string (optional) - User photo URL
+    //   - role: string (required, enum: ['admin', 'editor', 'viewer']) - User role
+    //   - createdAt: number (required, immutable) - Creation timestamp
+    //
+    // Collection: events
+    // Document ID: eventId
+    // Fields:
+    //   - id: string (required, immutable) - Event ID
+    //   - name: string (required, size < 100) - Event name
+    //   - date: string (required, format: date) - Event date
+    //   - location: string (required, size < 200) - Event location
+    //   - description: string (optional, size < 1000) - Event description
+    //   - authorities: list (optional, size < 3) - List of authority IDs
+    //   - certificateTemplate: map (required) - Certificate template
+    //   - credentialTemplate: map (required) - Credential template
+    //   - createdAt: number (required, immutable) - Creation timestamp
+    //   - createdBy: string (required, immutable) - Creator UID
+    //
+    // Collection: participants
+    // Document ID: participantId
+    // Fields:
+    //   - id: string (required, immutable) - Participant ID
+    //   - eventId: string (required, immutable) - Event ID
+    //   - name: string (required, size < 100) - Participant name
+    //   - email: string (required, format: email) - Participant email
+    //   - role: string (required, enum: ['asistente', 'docente', 'estudiante', 'logistica', 'organizador', 'ponente', 'protocolo', 'tecnico_informatico']) - Participant role
+    //   - registrationDate: number (required, immutable) - Registration timestamp
+    //   - attended: bool (required) - Attendance status
+    //
+    // Collection: authorities
+    // Document ID: authorityId
+    // Fields:
+    //   - id: string (required, immutable) - Authority ID
+    //   - name: string (required, size < 100) - Authority name
+    //   - role: string (required, size < 100) - Authority role
+    //   - organization: string (optional, size < 200) - Authority organization
+    //   - signatureUrl: string (optional, size < 500) - Digital signature image URL
+    //   - isSignatureActive: bool (optional) - Whether the digital signature is active
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        (request.auth.token.email == "sahejoan@gmail.com") ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role == 'admin')
+      );
+    }
+
+    function isEditor() {
+      return isAuthenticated() && (isAdmin() || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role == 'editor'));
+    }
+
+    function isViewer() {
+      return isAuthenticated() && (isEditor() || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role == 'viewer'));
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return hasRequiredFields(['uid', 'email', 'role', 'createdAt']) &&
+             hasOnlyAllowedFields(['uid', 'email', 'displayName', 'photoURL', 'role', 'createdAt', 'updatedAt']) &&
+             data.uid == request.auth.uid &&
+             data.email == request.auth.token.email &&
+             data.role in ['admin', 'editor', 'viewer'] &&
+             data.createdAt is number;
+    }
+
+    function isValidEvent(data) {
+      return hasRequiredFields(['id', 'name', 'date', 'location', 'certificateTemplate', 'credentialTemplate', 'createdAt', 'createdBy']) &&
+             hasOnlyAllowedFields(['id', 'name', 'date', 'location', 'description', 'authorities', 'certificateTemplate', 'credentialTemplate', 'createdAt', 'createdBy', 'updatedAt']) &&
+             data.name is string && data.name.size() < 100 &&
+             data.date is string &&
+             data.location is string && data.location.size() < 200 &&
+             (!('description' in data) || (data.description is string && data.description.size() < 1000)) &&
+             (!('authorities' in data) || (data.authorities is list && data.authorities.size() <= 3)) &&
+             data.certificateTemplate is map &&
+             data.credentialTemplate is map &&
+             data.createdAt is number &&
+             data.createdBy == request.auth.uid;
+    }
+
+    function isValidParticipant(data) {
+      return hasRequiredFields(['id', 'eventId', 'name', 'email', 'role', 'attended']) &&
+             hasOnlyAllowedFields(['id', 'eventId', 'name', 'email', 'idNumber', 'role', 'registrationDate', 'attended', 'createdAt', 'updatedAt']) &&
+             data.id is string &&
+             data.eventId is string &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             isValidEmail(data.email) &&
+             (!('idNumber' in data) || (data.idNumber is string && data.idNumber.size() > 0 && data.idNumber.size() < 20)) &&
+             data.role in ['asistente', 'docente', 'estudiante', 'logistica', 'organizador', 'ponente', 'protocolo', 'tecnico_informatico'] &&
+             (!('registrationDate' in data) || data.registrationDate is number) &&
+             (!('createdAt' in data) || data.createdAt is number) &&
+             (!('updatedAt' in data) || data.updatedAt is number) &&
+             data.attended is bool;
+    }
+
+    function isValidAuthority(data) {
+      return hasRequiredFields(['id', 'name', 'role']) &&
+             data.name is string && data.name.size() < 100 &&
+             data.role is string && data.role.size() < 100 &&
+             (!('organization' in data) || (data.organization is string && data.organization.size() < 200)) &&
+             (!('signatureUrl' in data) || (data.signatureUrl is string && data.signatureUrl.size() < 500)) &&
+             (!('isSignatureActive' in data) || data.isSignatureActive is bool);
+    }
+
+    // ===============================================================
+    // Match Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data) && (
+        request.resource.data.role == 'viewer' || 
+        (request.auth.token.email == "sahejoan@gmail.com" && request.resource.data.role == 'admin')
+      );
+      allow update: if isAuthenticated() && (
+        (isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == resource.data.role) ||
+        (isAdmin() && isValidUser(request.resource.data))
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /events/{eventId} {
+      allow read: if isViewer();
+      allow create: if isEditor() && isValidEvent(request.resource.data);
+      allow update: if isEditor() && isValidEvent(request.resource.data) && request.resource.data.createdBy == resource.data.createdBy;
+      allow delete: if isEditor() && (isAdmin() || resource.data.createdBy == request.auth.uid);
+    }
+
+    match /participants/{participantId} {
+      allow read: if isViewer();
+      allow create: if isEditor() && isValidParticipant(request.resource.data) && ('idNumber' in request.resource.data);
+      allow update: if isEditor() && (isAdmin() || isValidParticipant(request.resource.data));
+      allow delete: if isEditor();
+    }
+
+    match /authorities/{authorityId} {
+      allow read: if isViewer();
+      allow create: if isEditor() && isValidAuthority(request.resource.data) && (
+        !('signatureUrl' in request.resource.data) || isAdmin()
+      );
+      allow update: if isEditor() && isValidAuthority(request.resource.data) && (
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['signatureUrl']) || isAdmin()
+      );
+      allow delete: if isEditor();
+    }
+  }
+}
