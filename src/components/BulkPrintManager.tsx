@@ -3,7 +3,7 @@ import { Stage, Layer, Text, Image as KonvaImage, Rect } from 'react-konva';
 import * as jspdf from 'jspdf';
 import QRCode from 'qrcode';
 import { Event, Participant, Authority, Template } from '../types';
-import { formatDate } from '../lib/utils';
+import { formatDate, getAuthorityX } from '../lib/utils';
 
 // Handle both named and default export for jsPDF
 const jsPDFClass = (jspdf as any).jsPDF || (jspdf as any).default || jspdf;
@@ -18,19 +18,30 @@ interface BulkPrintManagerProps {
 
 export default function BulkPrintManager({ type, event, participants, authorities, onComplete }: BulkPrintManagerProps) {
   const [currentParticipantIndex, setCurrentParticipantIndex] = useState(-1);
-  const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
-  const bgImageRef = useRef<HTMLImageElement | null>(null);
+  const [currentSide, setCurrentSide] = useState<'front' | 'back'>('front');
+  const [bgImageFront, setBgImageFront] = useState<HTMLImageElement | null>(null);
+  const [bgImageBack, setBgImageBack] = useState<HTMLImageElement | null>(null);
+  const bgImageFrontRef = useRef<HTMLImageElement | null>(null);
+  const bgImageBackRef = useRef<HTMLImageElement | null>(null);
   const [qrImages, setQrImages] = useState<Record<string, HTMLImageElement>>({});
   const [signatureImages, setSignatureImages] = useState<Record<string, HTMLImageElement>>({});
   const stageRef = useRef<any>(null);
   const pdfRef = useRef<any>(null);
 
-  const template = type === 'certificates' ? event.certificateTemplate : event.credentialTemplate;
-  const stageWidth = type === 'certificates' ? 800 : 400;
-  const stageHeight = type === 'certificates' ? 565 : 600;
+  const isCertificate = type === 'certificates';
+  const hasBackSide = !!(isCertificate && event.certificateBackTemplate && 
+    (event.certificateBackTemplate.elements.length > 0 || !!event.certificateBackTemplate.backgroundUrl));
+  
+  const template = isCertificate 
+    ? (currentSide === 'front' ? event.certificateTemplate : event.certificateBackTemplate!)
+    : event.credentialTemplate;
+    
+  const stageWidth = isCertificate ? 800 : 400;
+  const stageHeight = isCertificate ? 565 : 600;
 
   // Initial setup: Load background and signatures (once)
   useEffect(() => {
+    console.log(`[BulkPrint] Initializing BulkPrintManager. Participants: ${participants.length}. Type: ${type}`);
     if (participants.length === 0) {
       onComplete();
       return;
@@ -38,45 +49,51 @@ export default function BulkPrintManager({ type, event, participants, authoritie
 
     const loadStaticAssets = async () => {
       try {
-        // Load background
-        if (template.backgroundUrl) {
+        // Load backgrounds
+        const loadImg = async (url: string | undefined): Promise<HTMLImageElement | null> => {
+          if (!url) return null;
           const img = new window.Image();
-          if (template.backgroundUrl.startsWith('http')) {
+          if (url.startsWith('http')) {
             img.crossOrigin = 'Anonymous';
           }
-          img.src = template.backgroundUrl;
+          img.src = url;
           await new Promise((resolve) => {
             img.onload = resolve;
-            img.onerror = () => {
-              console.warn('Failed to load background image, continuing without it.');
-              resolve(null);
-            };
+            img.onerror = () => resolve(null);
           });
-          bgImageRef.current = img;
-          setBgImage(img);
+          return img.complete && img.naturalWidth > 0 ? img : null;
+        };
+
+        const frontBg = await loadImg(isCertificate ? event.certificateTemplate?.backgroundUrl : event.credentialTemplate?.backgroundUrl);
+        bgImageFrontRef.current = frontBg;
+        setBgImageFront(frontBg);
+
+        if (hasBackSide) {
+          const backBg = await loadImg(event.certificateBackTemplate?.backgroundUrl);
+          bgImageBackRef.current = backBg;
+          setBgImageBack(backBg);
         }
 
-        // Load signatures (for both certificates and credentials if present)
+        // Load signatures for all templates
         const newSigImages: Record<string, HTMLImageElement> = {};
-        for (const el of template.elements) {
-          if (el.type === 'variable' && el.content.endsWith('_signature')) {
-            const match = el.content.match(/^auth(\d)_signature$/);
-            if (match) {
-              const index = parseInt(match[1]) - 1;
-              const authId = event.authorities?.[index];
-              const authority = authorities.find(a => a.id === authId);
-              if (authority?.signatureUrl && authority.isSignatureActive) {
-                const img = new window.Image();
-                if (authority.signatureUrl.startsWith('http')) {
-                  img.crossOrigin = 'Anonymous';
-                }
-                img.src = authority.signatureUrl;
-                await new Promise(resolve => {
-                  img.onload = resolve;
-                  img.onerror = () => resolve(null);
-                });
-                if (img.complete && img.naturalWidth > 0) {
-                  newSigImages[el.id] = img;
+        const allTemplates = [
+          event.certificateTemplate,
+          event.certificateBackTemplate,
+          event.credentialTemplate
+        ].filter(Boolean) as Template[];
+
+        for (const t of allTemplates) {
+          if (!t.elements) continue;
+          for (const el of t.elements) {
+            if (el.type === 'variable' && el.content.endsWith('_signature')) {
+              const match = el.content.match(/^auth(\d)_signature$/);
+              if (match) {
+                const index = parseInt(match[1]) - 1;
+                const authId = event.authorities?.[index];
+                const authority = authorities.find(a => a.id === authId);
+                if (authority?.signatureUrl && authority.isSignatureActive) {
+                  const img = await loadImg(authority.signatureUrl);
+                  if (img) newSigImages[el.id] = img;
                 }
               }
             }
@@ -86,16 +103,17 @@ export default function BulkPrintManager({ type, event, participants, authoritie
 
         // Initialize PDF
         const pdf = new jsPDFClass({
-          orientation: type === 'certificates' ? 'landscape' : 'portrait',
+          orientation: isCertificate ? 'landscape' : 'portrait',
           unit: 'px',
-          format: type === 'certificates' ? [800, 565] : [400, 600]
+          format: isCertificate ? [800, 565] : [400, 600]
         });
         pdfRef.current = pdf;
 
         // Small delay to ensure state updates are processed
         setTimeout(() => {
           setCurrentParticipantIndex(0);
-        }, 200);
+          setCurrentSide('front');
+        }, 1000);
       } catch (error) {
         console.error('Error in BulkPrintManager setup:', error);
         onComplete();
@@ -105,15 +123,16 @@ export default function BulkPrintManager({ type, event, participants, authoritie
     loadStaticAssets();
   }, []);
 
-  // Process current participant
+  // Process current participant and side
   useEffect(() => {
+    console.log(`[BulkPrint] currentParticipantIndex: ${currentParticipantIndex}, side: ${currentSide}`);
     if (currentParticipantIndex === -1 || currentParticipantIndex >= participants.length) return;
 
     const processParticipant = async () => {
       const participant = participants[currentParticipantIndex];
       
       try {
-        // Generate QR codes for this participant
+        // Generate QR codes for this participant and current template
         const newQrImages: Record<string, HTMLImageElement> = {};
         for (const el of template.elements) {
           if (el.type === 'qr_code') {
@@ -134,72 +153,69 @@ export default function BulkPrintManager({ type, event, participants, authoritie
         setQrImages(newQrImages);
 
         // Wait for Konva to render the new state
-        // Increased delay to ensure rendering is complete
         setTimeout(() => {
           captureAndNext();
-        }, 1000);
+        }, 1500);
       } catch (error) {
         console.error('Error processing participant:', error);
-        // Skip this participant and continue
-        if (currentParticipantIndex < participants.length - 1) {
-          setCurrentParticipantIndex(prev => prev + 1);
-        } else {
-          onComplete();
-        }
+        // Skip this side/participant and continue
+        handleNext();
       }
     };
 
     processParticipant();
-  }, [currentParticipantIndex]);
+  }, [currentParticipantIndex, currentSide]);
 
-  const captureAndNext = () => {
-    if (!stageRef.current || !pdfRef.current) return;
-
-    try {
-      // Force a redraw of the stage
-      const stage = stageRef.current.getStage();
-      stage.batchDraw();
-
-      // Use a higher pixelRatio for better quality
-      const dataUrl = stage.toDataURL({ 
-        pixelRatio: 2,
-        mimeType: 'image/jpeg',
-        quality: 0.95
-      });
-      console.log(`[BulkPrint] Participant ${currentParticipantIndex} capture length: ${dataUrl.length}`);
-      
-      if (!dataUrl || dataUrl.length < 1000) {
-        console.warn(`[BulkPrint] Blank or tiny capture for participant ${currentParticipantIndex}, retrying...`);
-        setTimeout(captureAndNext, 500);
-        return;
-      }
-
-      const pdf = pdfRef.current;
-
-      if (type === 'certificates') {
-        if (currentParticipantIndex > 0) {
-          pdf.addPage([800, 565], 'landscape');
-        }
-        pdf.addImage(dataUrl, 'JPEG', 0, 0, 800, 565);
-      } else {
-        // Credentials: One per page for testing
-        if (currentParticipantIndex > 0) {
-          pdf.addPage([400, 600], 'portrait');
-        }
-        pdf.addImage(dataUrl, 'JPEG', 0, 0, 400, 600);
-      }
-
+  const handleNext = () => {
+    if (hasBackSide && currentSide === 'front') {
+      setCurrentSide('back');
+    } else {
       if (currentParticipantIndex < participants.length - 1) {
+        setCurrentSide('front');
         setCurrentParticipantIndex(prev => prev + 1);
       } else {
         // Finished!
         console.log('[BulkPrint] Generation complete, saving PDF...');
-        pdf.save(`${type === 'certificates' ? 'Certificados' : 'Credenciales'}_${event.name.replace(/\s+/g, '_')}.pdf`);
+        pdfRef.current.save(`${isCertificate ? 'Certificados' : 'Credenciales'}_${event.name.replace(/\s+/g, '_')}.pdf`);
         onComplete();
       }
+    }
+  };
+
+  const captureAndNext = async () => {
+    if (!stageRef.current || !pdfRef.current) {
+      console.warn(`[BulkPrint] stageRef or pdfRef is missing.`);
+      return;
+    }
+
+    try {
+      const stage = stageRef.current.getStage();
+      stage.batchDraw();
+
+      const canvas = stage.toCanvas({ pixelRatio: 1.5 });
+      const dataUrl = canvas.toDataURL('image/png');
+      
+      if (!dataUrl || dataUrl.length < 2000) {
+        console.warn(`[BulkPrint] Blank capture, retrying...`);
+        setTimeout(captureAndNext, 1000);
+        return;
+      }
+
+      const pdf = pdfRef.current;
+      
+      // Add page if not the first page of the PDF
+      if (pdf.getNumberOfPages() > 1 || (pdf.getNumberOfPages() === 1 && (currentParticipantIndex > 0 || (hasBackSide && currentSide === 'back')))) {
+        pdf.addPage(isCertificate ? [800, 565] : [400, 600], isCertificate ? 'landscape' : 'portrait');
+      }
+
+      pdf.setFillColor(255, 255, 255);
+      pdf.rect(0, 0, stageWidth, stageHeight, 'F');
+      pdf.addImage(dataUrl, 'PNG', 0, 0, stageWidth, stageHeight);
+
+      handleNext();
     } catch (error) {
       console.error('Error capturing stage:', error);
-      onComplete();
+      handleNext();
     }
   };
 
@@ -239,59 +255,87 @@ export default function BulkPrintManager({ type, event, participants, authoritie
   };
 
   const currentParticipant = participants[currentParticipantIndex];
+  const progress = participants.length > 0 
+    ? Math.max(0, Math.round(((currentParticipantIndex + 1) / participants.length) * 100)) 
+    : 0;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-xl">
-      <div className="text-center space-y-6 max-w-md w-full px-6">
-        <div className="relative w-24 h-24 mx-auto">
-          <div className="absolute inset-0 border-4 border-indigo-500/20 rounded-full"></div>
-          <div 
-            className="absolute inset-0 border-4 border-indigo-500 rounded-full border-t-transparent animate-spin"
-            style={{ animationDuration: '1.5s' }}
-          ></div>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-xl font-bold text-white">
-              {Math.round(((currentParticipantIndex + 1) / participants.length) * 100)}%
-            </span>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-zinc-950/95 backdrop-blur-2xl">
+      <div className="max-w-md w-full px-8 flex flex-col items-center">
+        {/* Progress Circle & Icon */}
+        <div className="relative w-32 h-32 mb-10">
+          <svg className="w-full h-full transform -rotate-90">
+            <circle
+              cx="64"
+              cy="64"
+              r="60"
+              stroke="currentColor"
+              strokeWidth="4"
+              fill="transparent"
+              className="text-zinc-800"
+            />
+            <circle
+              cx="64"
+              cy="64"
+              r="60"
+              stroke="currentColor"
+              strokeWidth="4"
+              fill="transparent"
+              strokeDasharray={377}
+              strokeDashoffset={377 - (377 * progress) / 100}
+              className="text-indigo-500 transition-all duration-500 ease-out"
+              strokeLinecap="round"
+            />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-3xl font-black text-white tracking-tighter">{progress}%</span>
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Progreso</span>
           </div>
         </div>
         
-        <div className="space-y-2">
-          <h3 className="text-2xl font-bold text-white">Generando PDF</h3>
-          <p className="text-zinc-400">
-            Procesando {type === 'certificates' ? 'certificado' : 'credencial'} {currentParticipantIndex + 1} de {participants.length}
-          </p>
-          <p className="text-xs text-indigo-400 font-medium uppercase tracking-widest">
-            {currentParticipant?.name}
-          </p>
+        <div className="text-center space-y-4 w-full">
+          <div className="space-y-1">
+            <h3 className="text-2xl font-bold text-white tracking-tight">
+              Generando {type === 'certificates' ? 'Certificados' : 'Credenciales'}
+            </h3>
+            <p className="text-zinc-400 text-sm">
+              Procesando {currentParticipantIndex + 1} de {participants.length} registros
+            </p>
+          </div>
+
+          {/* Linear Progress Bar */}
+          <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-indigo-500 transition-all duration-300 ease-out shadow-[0_0_10px_rgba(99,102,241,0.5)]"
+              style={{ width: `${progress}%` }}
+            ></div>
+          </div>
+
+          <div className="flex items-center justify-center gap-3 py-2 px-4 bg-white/5 rounded-2xl border border-white/5">
+            <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></div>
+            <p className="text-xs font-medium text-zinc-300 truncate max-w-[200px]">
+              {currentParticipant?.name || 'Iniciando...'}
+            </p>
+          </div>
         </div>
 
-        <div className="w-full bg-zinc-800 h-2 rounded-full overflow-hidden">
-          <div 
-            className="bg-indigo-500 h-full transition-all duration-300 ease-out"
-            style={{ width: `${((currentParticipantIndex + 1) / participants.length) * 100}%` }}
-          ></div>
-        </div>
-
-        <p className="text-xs text-zinc-500 italic">
-          Por favor, no cierres esta ventana hasta que la descarga comience automáticamente.
+        <p className="mt-12 text-[10px] text-zinc-600 uppercase tracking-[0.2em] font-bold text-center">
+          Por favor, no cierres esta ventana
         </p>
 
-        {/* Hidden Stage for Rendering - kept slightly visible and in-bounds to ensure browser renders it */}
+        {/* Hidden Stage for Rendering - kept in viewport but behind everything to ensure browser renders it */}
         <div 
-          className="fixed pointer-events-none overflow-hidden"
+          className="fixed top-0 left-0 pointer-events-none overflow-hidden"
           style={{ 
             width: stageWidth, 
             height: stageHeight, 
-            left: '-5000px',
-            top: '0',
-            opacity: 1,
-            zIndex: 9999
+            opacity: 0,
+            zIndex: -1000,
+            backgroundColor: 'white'
           }}
         >
           {currentParticipant && (
             <Stage
-              key={`stage-${currentParticipantIndex}`}
               width={stageWidth}
               height={stageHeight}
               ref={stageRef}
@@ -304,24 +348,45 @@ export default function BulkPrintManager({ type, event, participants, authoritie
                   width={stageWidth}
                   height={stageHeight}
                   fill="white"
-                  stroke="#FF0000"
-                  strokeWidth={2}
                 />
-                {(bgImage || bgImageRef.current) && (
+                {(bgImageFront || bgImageFrontRef.current) && currentSide === 'front' && (
                   <KonvaImage
-                    image={bgImage || bgImageRef.current!}
+                    image={bgImageFront || bgImageFrontRef.current!}
                     width={stageWidth}
                     height={stageHeight}
                   />
                 )}
-                {template.elements.map((el) => {
+                {(bgImageBack || bgImageBackRef.current) && currentSide === 'back' && (
+                  <KonvaImage
+                    image={bgImageBack || bgImageBackRef.current!}
+                    width={stageWidth}
+                    height={stageHeight}
+                  />
+                )}
+                {template?.elements?.map((el) => {
+                  let x = el.x;
+                  let authIndex = -1;
+                  if (el.type === 'variable' && el.content?.startsWith('auth')) {
+                    const match = el.content.match(/^auth(\d)_/);
+                    if (match) authIndex = parseInt(match[1]) - 1;
+                  } else if (el.id?.startsWith('sig')) {
+                    const match = el.id.match(/^sig(\d)/);
+                    if (match) authIndex = parseInt(match[1]) - 1;
+                  }
+
+                  if (authIndex !== -1) {
+                    const totalAuths = event.authorities?.length || 0;
+                    if (authIndex >= totalAuths) return null;
+                    x = getAuthorityX(authIndex, totalAuths, el.width || 0, stageWidth);
+                  }
+
                   if (el.type === 'qr_code') {
                     const qrImg = qrImages[el.id];
                     return qrImg ? (
                       <KonvaImage
                         key={el.id}
                         image={qrImg}
-                        x={el.x}
+                        x={x}
                         y={el.y}
                         width={el.width || 100}
                         height={el.height || 100}
@@ -335,7 +400,7 @@ export default function BulkPrintManager({ type, event, participants, authoritie
                       <KonvaImage
                         key={el.id}
                         image={sigImg}
-                        x={el.x}
+                        x={x}
                         y={el.y}
                         width={el.width || 150}
                         height={el.height || 60}
@@ -354,13 +419,13 @@ export default function BulkPrintManager({ type, event, participants, authoritie
                     <Text
                       key={el.id}
                       text={textValue}
-                      x={el.x}
+                      x={x}
                       y={el.y}
                       fontSize={el.fontSize}
                       fill={el.fill}
                       fontFamily={el.fontFamily || 'Inter'}
                       fontStyle={el.fontStyle || 'normal'}
-                      align={el.align || 'left'}
+                      align={el.align || 'center'}
                       width={el.width}
                     />
                   );

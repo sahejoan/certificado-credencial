@@ -24,7 +24,7 @@ export default function Layout({ children, activeTab, setActiveTab, user, onLogo
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex text-zinc-100">
+    <div className="h-screen bg-zinc-950 flex text-zinc-100 overflow-hidden">
       {/* Sidebar */}
       <aside className="w-64 bg-zinc-900 border-r border-white/5 flex flex-col">
         <div className="p-6 border-b border-white/5">
@@ -34,7 +34,7 @@ export default function Layout({ children, activeTab, setActiveTab, user, onLogo
           </div>
         </div>
 
-        <nav className="flex-1 p-4 space-y-2">
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto no-scrollbar">
           {navItems.map((item) => (
             <button
               key={item.id}
@@ -53,9 +53,9 @@ export default function Layout({ children, activeTab, setActiveTab, user, onLogo
         </nav>
 
         <div className="p-4 border-t border-white/5">
-          <div className="bg-indigo-600 text-white p-4 rounded-2xl shadow-lg shadow-indigo-900/20">
-            <p className="text-xs font-medium opacity-80 uppercase tracking-wider mb-1 text-indigo-100">Plan Premium</p>
-            <p className="font-bold">Eventos Ilimitados</p>
+          <div className="bg-black p-4 rounded-2xl border border-white/5 shadow-2xl">
+            <p className="text-xs font-medium uppercase tracking-wider mb-1 text-zinc-900">Plan Premium</p>
+            <p className="font-bold text-zinc-900">Eventos Ilimitados</p>
           </div>
         </div>
       </aside>
@@ -104,7 +104,7 @@ export default function Layout({ children, activeTab, setActiveTab, user, onLogo
           </div>
         </header>
 
-        <div className="flex-1 overflow-auto p-8">
+        <div className="flex-1 overflow-auto p-8 no-scrollbar">
           {children}
         </div>
       </main>

@@ -11,10 +11,7 @@ export interface User {
 
 export type Role = 
   | 'asistente' 
-  | 'docente' 
-  | 'estudiante' 
   | 'logistica' 
-  | 'organizador' 
   | 'ponente' 
   | 'protocolo' 
   | 'tecnico_informatico';
@@ -35,6 +32,7 @@ export interface Event {
   location: string;
   description: string;
   certificateTemplate: Template;
+  certificateBackTemplate?: Template;
   credentialTemplate: Template;
   createdAt: number;
   createdBy: string;

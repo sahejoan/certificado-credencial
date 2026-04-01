@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Stage, Layer, Text, Rect, Image as KonvaImage, Transformer } from 'react-konva';
 import { Type, Image as ImageIcon, Variable, Save, Trash2, Move, Download, QrCode, Upload } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import { Template, TemplateElement, User } from '../types';
-import { cn } from '../lib/utils';
+import { cn, getAuthorityX } from '../lib/utils';
 
 interface DesignEditorProps {
   template: Template;
@@ -11,6 +12,8 @@ interface DesignEditorProps {
   width?: number;
   height?: number;
   user: User | null;
+  authorityCount?: number;
+  defaultTemplate?: Template;
 }
 
 const VARIABLES = [
@@ -30,23 +33,28 @@ const VARIABLES = [
   { id: 'auth3_signature', label: 'Firma Autoridad 3' },
 ];
 
+import { compressImage } from '../lib/imageUtils';
+
 export default function DesignEditor({ 
   template, 
   onSave, 
   title,
   width = 800,
   height = 565,
-  user
+  user,
+  authorityCount = 4,
+  defaultTemplate
 }: DesignEditorProps) {
   const [elements, setElements] = useState<TemplateElement[]>(template.elements || []);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [backgroundUrl, setBackgroundUrl] = useState<string | undefined>(template.backgroundUrl);
   const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
+  const [isCompressing, setIsCompressing] = useState(false);
   const stageRef = useRef<any>(null);
   const transformerRef = useRef<any>(null);
   const bgFileInputRef = useRef<HTMLInputElement>(null);
 
-  const isEditor = user?.role === 'admin' || user?.role === 'editor';
+  const isEditor = user?.role === 'admin' || user?.role === 'editor' || user?.role === 'viewer';
 
   useEffect(() => {
     setElements(template.elements || []);
@@ -61,6 +69,28 @@ export default function DesignEditor({
       img.onload = () => setBgImage(img);
     }
   }, [backgroundUrl]);
+
+  const handleBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setIsCompressing(true);
+      try {
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const base64 = reader.result as string;
+          // Compress image to stay under Firestore 1MB limit
+          // 1200px is usually enough for certificates
+          const compressed = await compressImage(base64, 1200, 0.7);
+          setBackgroundUrl(compressed);
+        };
+        reader.readAsDataURL(file);
+      } catch (error) {
+        console.error('Error compressing image:', error);
+      } finally {
+        setIsCompressing(false);
+      }
+    }
+  };
 
   useEffect(() => {
     if (selectedId && transformerRef.current) {
@@ -105,41 +135,111 @@ export default function DesignEditor({
     setSelectedId(null);
   };
 
-  const handleExport = () => {
-    const uri = stageRef.current.toDataURL();
-    const link = document.createElement('a');
-    link.download = `${title}.png`;
-    link.href = uri;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleResetToDefault = () => {
+    if (defaultTemplate && window.confirm('¿Estás seguro de que deseas restablecer el diseño a los valores predeterminados? Se perderán los cambios actuales.')) {
+      setElements(defaultTemplate.elements);
+      setBackgroundUrl(defaultTemplate.backgroundUrl);
+      setSelectedId(null);
+      toast.success('Diseño restablecido');
+    }
+  };
+
+  const [isExporting, setIsExporting] = useState(false);
+  const [isAssetLoading, setIsAssetLoading] = useState(true);
+
+  useEffect(() => {
+    const loadAssets = async () => {
+      setIsAssetLoading(true);
+      try {
+        // Simulating asset loading or ensuring fonts are ready
+        await new Promise(resolve => setTimeout(resolve, 800));
+      } finally {
+        setIsAssetLoading(false);
+      }
+    };
+    loadAssets();
+  }, []);
+
+  const handleExport = async () => {
+    if (!stageRef.current) return;
+    setIsExporting(true);
+    
+    // Small delay to show the loading screen
+    await new Promise(resolve => setTimeout(resolve, 600));
+    
+    try {
+      const uri = stageRef.current.toDataURL({ pixelRatio: 2 });
+      const link = document.createElement('a');
+      link.download = `${title}.png`;
+      link.href = uri;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success('Vista previa exportada');
+    } catch (error) {
+      toast.error('Error al exportar');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const selectedElement = elements.find(el => el.id === selectedId);
 
   return (
-    <div className="flex flex-col h-full gap-6">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col h-full gap-6 relative">
+      {(isExporting || isAssetLoading || isCompressing) && (
+        <div className="absolute inset-0 z-[100] flex flex-col items-center justify-center bg-black/80 backdrop-blur-xl rounded-3xl">
+          <div className="relative w-24 h-24 mb-6">
+            <div className="absolute inset-0 border-4 border-indigo-500/20 rounded-full"></div>
+            <div 
+              className="absolute inset-0 border-4 border-indigo-500 rounded-full border-t-transparent animate-spin"
+              style={{ animationDuration: '1.5s' }}
+            ></div>
+          </div>
+          <h3 className="text-2xl font-bold text-white mb-2">
+            {isExporting ? 'Exportando Diseño' : isCompressing ? 'Comprimiendo Imagen' : 'Cargando Editor'}
+          </h3>
+          <p className="text-zinc-400 mb-6">Por favor, espera un momento...</p>
+          
+          <div className="w-64 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+            <div className="h-full bg-indigo-500 animate-[loading_2s_ease-in-out_infinite] shadow-[0_0_10px_rgba(99,102,241,0.5)]"></div>
+          </div>
+        </div>
+      )}
+      <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-white">{title}</h2>
+          <h2 className="text-2xl font-bold text-white leading-tight">{title}</h2>
           <p className="text-zinc-400">Diseña el formato visual de tus certificados.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 pt-1">
           <button
             onClick={handleExport}
-            className="flex items-center gap-2 px-4 py-2 border border-white/10 rounded-xl hover:bg-zinc-800 transition-colors text-zinc-300"
+            className="flex items-center gap-1.5 px-3 py-1.5 border border-white/10 rounded-lg hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-white text-xs font-medium"
           >
-            <Download className="w-4 h-4" />
+            <Download className="w-3.5 h-3.5" />
             Exportar Prueba
           </button>
           {isEditor && (
-            <button
-              onClick={() => onSave({ backgroundUrl: backgroundUrl || '', elements })}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-900/20"
-            >
-              <Save className="w-4 h-4" />
-              Guardar Diseño
-            </button>
+            <div className="flex items-center gap-2">
+              {defaultTemplate && (
+                <button
+                  onClick={handleResetToDefault}
+                  className="flex items-center gap-1.5 px-3 py-1.5 border border-white/10 rounded-lg hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-white text-xs font-medium"
+                  title="Restablecer a valores predeterminados"
+                >
+                  <Move className="w-3.5 h-3.5 rotate-45" />
+                  Restablecer
+                </button>
+              )}
+              <div className="w-px h-6 bg-white/10 mx-1" />
+              <button
+                onClick={() => onSave({ backgroundUrl: backgroundUrl || '', elements })}
+                className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm text-xs font-bold"
+              >
+                <Save className="w-4 h-4" />
+                Guardar Diseño
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -230,10 +330,11 @@ export default function DesignEditor({
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => bgFileInputRef.current?.click()}
-                  className="flex items-center justify-center gap-2 p-3 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-zinc-300 transition-colors border border-white/5"
+                  disabled={isCompressing}
+                  className="flex items-center justify-center gap-2 p-3 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-zinc-300 transition-colors border border-white/5 disabled:opacity-50"
                 >
                   <Upload className="w-4 h-4 text-indigo-400" />
-                  <span className="text-xs font-bold uppercase">Archivo</span>
+                  <span className="text-xs font-bold uppercase">{isCompressing ? '...' : 'Archivo'}</span>
                 </button>
                 <button
                   onClick={() => {
@@ -250,14 +351,7 @@ export default function DesignEditor({
               <input
                 type="file"
                 ref={bgFileInputRef}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    const reader = new FileReader();
-                    reader.onloadend = () => setBackgroundUrl(reader.result as string);
-                    reader.readAsDataURL(file);
-                  }
-                }}
+                onChange={handleBgUpload}
                 accept="image/*"
                 className="hidden"
               />
@@ -384,9 +478,9 @@ export default function DesignEditor({
 
                 <button
                   onClick={() => deleteElement(selectedElement.id)}
-                  className="w-full flex items-center justify-center gap-2 py-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors text-sm font-medium"
+                  className="w-full flex items-center justify-center gap-1.5 py-1.5 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors text-xs font-bold uppercase tracking-tight"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-3.5 h-3.5" />
                   Eliminar Elemento
                 </button>
               </div>
@@ -395,8 +489,8 @@ export default function DesignEditor({
         </aside>
 
         {/* Canvas Area */}
-        <div className="flex-1 bg-zinc-950 border border-white/5 rounded-3xl overflow-hidden flex items-center justify-center relative">
-          <div className="bg-white shadow-2xl">
+        <div className="flex-1 bg-zinc-950 border border-white/5 rounded-3xl overflow-auto flex items-center justify-center relative p-8 md:p-12 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
+          <div className="bg-white shadow-2xl shrink-0">
               <Stage
                 width={width}
                 height={height}
@@ -415,6 +509,26 @@ export default function DesignEditor({
                     />
                   )}
                 {elements.map((el) => {
+                  let x = el.x;
+                  let isDynamic = false;
+                  let authIndex = -1;
+                  if (el.type === 'variable' && el.content.startsWith('auth')) {
+                    const match = el.content.match(/^auth(\d)_/);
+                    if (match) authIndex = parseInt(match[1]) - 1;
+                  } else if (el.id.startsWith('sig')) {
+                    const match = el.id.match(/^sig(\d)/);
+                    if (match) authIndex = parseInt(match[1]) - 1;
+                  }
+
+                  if (authIndex !== -1) {
+                    if (authIndex < authorityCount) {
+                      x = getAuthorityX(authIndex, authorityCount, el.width || 0, width);
+                      isDynamic = true;
+                    } else {
+                      return null; // Hide unused authorities
+                    }
+                  }
+
                   if (el.type === 'qr_code') {
                     return (
                       <React.Fragment key={el.id}>
@@ -455,16 +569,16 @@ export default function DesignEditor({
                       <React.Fragment key={el.id}>
                         <Rect
                           id={el.id}
-                          x={el.x}
+                          x={x}
                           y={el.y}
                           width={el.width || 150}
                           height={el.height || 60}
-                          fill="#e0e7ff"
-                          stroke="#4f46e5"
+                          fill={isDynamic ? "#e0e7ff80" : "#e0e7ff"}
+                          stroke={isDynamic ? "#4f46e580" : "#4f46e5"}
                           strokeWidth={1}
                           strokeScaleEnabled={false}
                           dash={[4, 4]}
-                          draggable={isEditor}
+                          draggable={isEditor && !isDynamic}
                           onClick={() => setSelectedId(el.id)}
                           onDragEnd={(e) => {
                             updateElement(el.id, {
@@ -474,13 +588,13 @@ export default function DesignEditor({
                           }}
                         />
                         <Text
-                          x={el.x}
+                          x={x}
                           y={el.y + (el.height || 60) / 2 - 6}
                           width={el.width || 150}
                           text={VARIABLES.find(v => v.id === el.content)?.label}
                           align="center"
                           fontSize={10}
-                          fill="#4f46e5"
+                          fill={isDynamic ? "#4f46e580" : "#4f46e5"}
                           listening={false}
                         />
                       </React.Fragment>
@@ -497,15 +611,15 @@ export default function DesignEditor({
                             return v ? `[${v.label}]` : match;
                           })
                       }
-                      x={el.x}
+                      x={x}
                       y={el.y}
                       fontSize={el.fontSize}
-                      fill={el.fill}
+                      fill={isDynamic ? el.fill + '80' : el.fill}
                       fontFamily={el.fontFamily || 'Inter'}
                       fontStyle={el.fontStyle || 'normal'}
-                      align={el.align || 'left'}
+                      align={isDynamic ? 'center' : (el.align || 'left')}
                       width={el.width}
-                      draggable={isEditor}
+                      draggable={isEditor && !isDynamic}
                       onClick={() => setSelectedId(el.id)}
                       onDragEnd={(e) => {
                         updateElement(el.id, {

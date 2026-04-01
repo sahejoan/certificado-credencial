@@ -47,7 +47,7 @@ export default function AuthorityList({
             key={auth.id}
             className="bg-zinc-900 border border-white/5 rounded-3xl p-6 hover:border-indigo-500/30 transition-all group relative overflow-hidden"
           >
-            <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+            <div className="absolute top-0 right-0 p-4 flex gap-2">
               {isEditor && (
                 <button
                   onClick={() => onEditAuthority(auth)}
@@ -88,12 +88,16 @@ export default function AuthorityList({
                       )} />
                       {auth.isSignatureActive ? 'Firma Activa' : 'Firma Inactiva'}
                     </div>
-                    {isEditor && auth.signatureUrl && (
-                      <label className="relative inline-flex items-center cursor-pointer">
+                    {isEditor && (
+                      <label className={cn(
+                        "relative inline-flex items-center",
+                        auth.signatureUrl ? "cursor-pointer" : "cursor-not-allowed opacity-50"
+                      )}>
                         <input 
                           type="checkbox" 
                           checked={auth.isSignatureActive}
-                          onChange={(e) => onToggleSignature(auth.id, e.target.checked)}
+                          onChange={(e) => auth.signatureUrl && onToggleSignature(auth.id, e.target.checked)}
+                          disabled={!auth.signatureUrl}
                           className="sr-only peer" 
                         />
                         <div className="w-11 h-6 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
@@ -102,9 +106,9 @@ export default function AuthorityList({
                   </div>
 
                   {!auth.signatureUrl && (
-                    <div className="flex items-center gap-2 text-[10px] text-zinc-600 font-bold uppercase tracking-wider italic">
+                    <div className="flex items-center gap-2 p-2 bg-red-500/5 border border-red-500/10 rounded-xl text-[10px] text-red-400 font-bold uppercase tracking-wider">
                       <Award className="w-3 h-3 opacity-50" />
-                      Sin Firma Digital
+                      Firma Digital No Registrada
                     </div>
                   )}
 

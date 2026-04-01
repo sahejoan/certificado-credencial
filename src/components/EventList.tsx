@@ -32,15 +32,15 @@ export default function EventList({
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-white tracking-tight">Mis Eventos</h2>
+          <h2 className="text-3xl font-bold text-white tracking-tight leading-tight">Mis Eventos</h2>
           <p className="text-zinc-400 mt-1">Gestiona tus eventos y sus certificados.</p>
         </div>
         {isEditor && (
           <button
             onClick={onAddEvent}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl font-semibold flex items-center gap-2 transition-all duration-200 shadow-lg shadow-indigo-900/20"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl font-semibold flex items-center gap-2 transition-all duration-200 shadow-lg shadow-indigo-900/20 mt-1"
           >
             <Plus className="w-5 h-5" />
             Nuevo Evento
@@ -89,7 +89,7 @@ export default function EventList({
                 <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-400 group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-300">
                   <Award className="w-6 h-6" />
                 </div>
-                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <div className="flex items-center gap-2 transition-opacity duration-300">
                   {isEditor && (
                     <button
                       onClick={(e) => { e.stopPropagation(); onEditEvent(event); }}

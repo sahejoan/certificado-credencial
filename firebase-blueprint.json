@@ -26,6 +26,7 @@
         "description": { "type": "string" },
         "authorities": { "type": "array", "items": { "type": "string" } },
         "certificateTemplate": { "type": "object" },
+        "certificateBackTemplate": { "type": "object" },
         "credentialTemplate": { "type": "object" },
         "createdAt": { "type": "number" },
         "createdBy": { "type": "string" }

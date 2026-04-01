@@ -12,3 +12,9 @@ export function formatDate(date: string | number) {
     day: 'numeric',
   });
 }
+
+export function getAuthorityX(index: number, total: number, elementWidth: number = 0, stageWidth: number = 800) {
+  if (total <= 0) return 0;
+  const spacing = stageWidth / (total + 1);
+  return spacing * (index + 1) - (elementWidth / 2);
+}

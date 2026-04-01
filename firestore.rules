@@ -103,10 +103,15 @@ service cloud.firestore {
     function isValidUser(data) {
       return hasRequiredFields(['uid', 'email', 'role', 'createdAt']) &&
              hasOnlyAllowedFields(['uid', 'email', 'displayName', 'photoURL', 'role', 'createdAt', 'updatedAt']) &&
-             data.uid == request.auth.uid &&
-             data.email == request.auth.token.email &&
+             data.email is string && isValidEmail(data.email) &&
              data.role in ['admin', 'editor', 'viewer'] &&
              data.createdAt is number;
+    }
+
+    function isValidSelfUser(data) {
+      return isValidUser(data) &&
+             data.uid == request.auth.uid &&
+             data.email == request.auth.token.email;
     }
 
     function isValidEvent(data) {
@@ -131,11 +136,15 @@ service cloud.firestore {
              data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
              isValidEmail(data.email) &&
              (!('idNumber' in data) || (data.idNumber is string && data.idNumber.size() > 0 && data.idNumber.size() < 20)) &&
-             data.role in ['asistente', 'docente', 'estudiante', 'logistica', 'organizador', 'ponente', 'protocolo', 'tecnico_informatico'] &&
+             data.role in ['asistente', 'logistica', 'ponente', 'protocolo', 'tecnico_informatico'] &&
              (!('registrationDate' in data) || data.registrationDate is number) &&
              (!('createdAt' in data) || data.createdAt is number) &&
              (!('updatedAt' in data) || data.updatedAt is number) &&
              data.attended is bool;
+    }
+
+    function isPublicRegistration(data) {
+      return isValidParticipant(data) && data.attended == false;
     }
 
     function isValidAuthority(data) {
@@ -153,27 +162,34 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data) && (
-        request.resource.data.role == 'viewer' || 
-        (request.auth.token.email == "sahejoan@gmail.com" && request.resource.data.role == 'admin')
+      allow create: if isAuthenticated() && (
+        (isOwner(userId) && isValidSelfUser(request.resource.data) && (
+          request.resource.data.role == 'viewer' || 
+          (request.auth.token.email == "sahejoan@gmail.com" && request.resource.data.role == 'admin')
+        )) ||
+        (isAdmin() && isValidUser(request.resource.data))
       );
       allow update: if isAuthenticated() && (
-        (isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == resource.data.role) ||
+        (isOwner(userId) && isValidSelfUser(request.resource.data) && request.resource.data.role == resource.data.role) ||
         (isAdmin() && isValidUser(request.resource.data))
       );
       allow delete: if isAdmin();
     }
 
     match /events/{eventId} {
-      allow read: if isViewer();
+      allow get: if true;
+      allow list: if true;
       allow create: if isEditor() && isValidEvent(request.resource.data);
-      allow update: if isEditor() && isValidEvent(request.resource.data) && request.resource.data.createdBy == resource.data.createdBy;
+      allow update: if (isEditor() && isValidEvent(request.resource.data) && request.resource.data.createdBy == resource.data.createdBy) ||
+                     (isViewer() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['certificateTemplate', 'certificateBackTemplate', 'credentialTemplate', 'updatedAt']));
       allow delete: if isEditor() && (isAdmin() || resource.data.createdBy == request.auth.uid);
     }
 
     match /participants/{participantId} {
-      allow read: if isViewer();
-      allow create: if isEditor() && isValidParticipant(request.resource.data) && ('idNumber' in request.resource.data);
+      allow get: if true;
+      allow list: if isViewer();
+      allow create: if (isEditor() && isValidParticipant(request.resource.data)) || 
+                      (isPublicRegistration(request.resource.data));
       allow update: if isEditor() && (isAdmin() || isValidParticipant(request.resource.data));
       allow delete: if isEditor();
     }
