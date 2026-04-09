@@ -3,7 +3,8 @@ import { Stage, Layer, Text, Image as KonvaImage, Rect } from 'react-konva';
 import { Download, X, ChevronLeft } from 'lucide-react';
 import QRCode from 'qrcode';
 import { Event, Participant, Authority } from '../types';
-import { formatDate } from '../lib/utils';
+import { formatDate, getVerificationUrl } from '../lib/utils';
+import { ROLES } from '../constants';
 
 interface CredentialPreviewProps {
   event: Event;
@@ -43,7 +44,7 @@ export default function CredentialPreview({ event, participant, authorities, onC
           for (const el of template.elements) {
             if (el.type === 'qr_code') {
               try {
-                const verificationUrl = `${window.location.origin}${window.location.pathname}?verify=${participant.id}`;
+                const verificationUrl = getVerificationUrl(participant.id);
                 const dataUrl = await QRCode.toDataURL(verificationUrl, {
                   margin: 0,
                   color: {
@@ -135,7 +136,13 @@ export default function CredentialPreview({ event, participant, authorities, onC
         const formattedNumbers = numbers.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
         return `${prefix}-${formattedNumbers}`;
       }
-      case 'participant_role': return participant.role.replace(/_/g, ' ').charAt(0).toUpperCase() + participant.role.replace(/_/g, ' ').slice(1);
+      case 'participant_role': {
+        const role = ROLES.find(r => 
+          r.id.toLowerCase() === participant.role?.toLowerCase() || 
+          r.label.toLowerCase() === participant.role?.toLowerCase()
+        );
+        return role ? role.label : participant.role;
+      }
       case 'event_name': return event.name;
       case 'event_date': return formatDate(event.date);
       default: return '';

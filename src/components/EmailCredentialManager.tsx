@@ -10,20 +10,18 @@ import { Mail, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 
 const jsPDFClass = (jspdf as any).jsPDF || (jspdf as any).default || jspdf;
 
-interface EmailCertificateManagerProps {
+interface EmailCredentialManagerProps {
   event: Event;
   participants: Participant[];
   authorities: Authority[];
   onComplete: () => void;
 }
 
-export default function EmailCertificateManager({ event, participants, authorities, onComplete }: EmailCertificateManagerProps) {
+export default function EmailCredentialManager({ event, participants, authorities, onComplete }: EmailCredentialManagerProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [status, setStatus] = useState<'generating' | 'sending' | 'success' | 'error'>('generating');
   const [errorMessage, setErrorMessage] = useState('');
-  const [currentSide, setCurrentSide] = useState<'front' | 'back'>('front');
-  const [bgImageFront, setBgImageFront] = useState<HTMLImageElement | null>(null);
-  const [bgImageBack, setBgImageBack] = useState<HTMLImageElement | null>(null);
+  const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
   const [qrImages, setQrImages] = useState<Record<string, HTMLImageElement>>({});
   const [signatureImages, setSignatureImages] = useState<Record<string, HTMLImageElement>>({});
   const [processedCount, setProcessedCount] = useState(0);
@@ -31,9 +29,7 @@ export default function EmailCertificateManager({ event, participants, authoriti
   const pdfRef = useRef<any>(null);
 
   const participant = participants[currentIndex];
-  const hasBackSide = event.certificateBackTemplate && 
-    (event.certificateBackTemplate.elements.length > 0 || !!event.certificateBackTemplate.backgroundUrl);
-  const template = currentSide === 'front' ? event.certificateTemplate : event.certificateBackTemplate!;
+  const template = event.credentialTemplate;
 
   useEffect(() => {
     const loadAssets = async () => {
@@ -52,22 +48,14 @@ export default function EmailCertificateManager({ event, participants, authoriti
           return img.complete && img.naturalWidth > 0 ? img : null;
         };
 
-        // Load backgrounds
-        const frontBg = await loadImg(event.certificateTemplate?.backgroundUrl);
-        setBgImageFront(frontBg);
+        // Load background
+        const bg = await loadImg(template?.backgroundUrl);
+        setBgImage(bg);
 
-        if (hasBackSide) {
-          const backBg = await loadImg(event.certificateBackTemplate?.backgroundUrl);
-          setBgImageBack(backBg);
-        }
-
-        // Load signatures for all templates
+        // Load signatures
         const newSigImages: Record<string, HTMLImageElement> = {};
-        const allTemplates = [event.certificateTemplate, event.certificateBackTemplate].filter(Boolean) as Template[];
-        
-        for (const t of allTemplates) {
-          if (!t.elements) continue;
-          for (const el of t.elements) {
+        if (template?.elements) {
+          for (const el of template.elements) {
             if (el.type === 'variable' && el.content.endsWith('_signature')) {
               const match = el.content.match(/^auth(\d)_signature$/);
               if (match) {
@@ -88,69 +76,65 @@ export default function EmailCertificateManager({ event, participants, authoriti
         setCurrentIndex(0);
         setStatus('generating');
       } catch (error) {
-        console.error('Error in EmailSender setup:', error);
+        console.error('Error in EmailCredentialManager setup:', error);
         setStatus('error');
-        setErrorMessage('Error al preparar los recursos del certificado.');
+        setErrorMessage('Error al preparar los recursos de la credencial.');
       }
     };
 
     loadAssets();
   }, []);
 
-  // Process current side or next participant
   useEffect(() => {
     if (status !== 'generating' || !participant) return;
 
-    const processSide = async () => {
+    const processCredential = async () => {
       try {
-        // Initialize PDF for this participant only when starting with the front side
-        if (currentSide === 'front') {
-          const pdf = new jsPDFClass({
-            orientation: 'landscape',
-            unit: 'px',
-            format: [800, 565]
-          });
-          pdfRef.current = pdf;
-        }
-        
-        const pdf = pdfRef.current;
-        if (!pdf) return;
+        // Initialize PDF for this participant
+        const pdf = new jsPDFClass({
+          orientation: 'portrait',
+          unit: 'px',
+          format: [400, 600]
+        });
+        pdfRef.current = pdf;
 
-        // Generate QR codes for current template
+        // Generate QR codes
         const newQrImages: Record<string, HTMLImageElement> = {};
-        for (const el of template.elements) {
-          if (el.type === 'qr_code') {
-            const verificationUrl = getVerificationUrl(participant.id);
-            const dataUrl = await QRCode.toDataURL(verificationUrl, {
-              margin: 0,
-              color: {
-                dark: el.fill || '#000000',
-                light: '#ffffff00'
-              }
-            });
-            const img = new window.Image();
-            img.src = dataUrl;
-            await new Promise(resolve => img.onload = resolve);
-            newQrImages[el.id] = img;
+        if (template?.elements) {
+          for (const el of template.elements) {
+            if (el.type === 'qr_code') {
+              const verificationUrl = getVerificationUrl(participant.id);
+              const dataUrl = await QRCode.toDataURL(verificationUrl, {
+                margin: 0,
+                color: {
+                  dark: el.fill || '#000000',
+                  light: '#ffffff00'
+                }
+              });
+              const img = new window.Image();
+              img.src = dataUrl;
+              await new Promise(resolve => img.onload = resolve);
+              newQrImages[el.id] = img;
+            }
           }
         }
         setQrImages(newQrImages);
 
         // Wait for render
         setTimeout(() => {
-          captureAndNext();
+          captureAndSend();
         }, 1500);
       } catch (error) {
-        console.error('Error processing side:', error);
+        console.error('Error processing credential:', error);
         setStatus('error');
-        setErrorMessage('Error al generar el certificado.');
+        setErrorMessage('Error al generar la credencial.');
       }
     };
 
-    processSide();
-  }, [currentIndex, currentSide, status]);
+    processCredential();
+  }, [currentIndex, status]);
 
-  const captureAndNext = async () => {
+  const captureAndSend = async () => {
     if (!stageRef.current || !pdfRef.current) return;
 
     try {
@@ -161,28 +145,18 @@ export default function EmailCertificateManager({ event, participants, authoriti
 
       if (!dataUrl || dataUrl.length < 2000) {
         console.warn('Blank capture detected, retrying...');
-        setTimeout(captureAndNext, 500);
+        setTimeout(captureAndSend, 500);
         return;
       }
 
       const pdf = pdfRef.current;
-      
-      if (currentSide === 'back') {
-        pdf.addPage([800, 565], 'landscape');
-      }
-
       pdf.setFillColor(255, 255, 255);
-      pdf.rect(0, 0, 800, 565, 'F');
-      pdf.addImage(dataUrl, 'PNG', 0, 0, 800, 565);
+      pdf.rect(0, 0, 400, 600, 'F');
+      pdf.addImage(dataUrl, 'PNG', 0, 0, 400, 600);
 
-      if (currentSide === 'front' && hasBackSide) {
-        setCurrentSide('back');
-      } else {
-        // All sides captured for this participant, send email
-        sendEmail();
-      }
+      sendEmail();
     } catch (error) {
-      console.error('Error capturing side:', error);
+      console.error('Error capturing credential:', error);
       setStatus('error');
     }
   };
@@ -193,7 +167,7 @@ export default function EmailCertificateManager({ event, participants, authoriti
       const pdf = pdfRef.current;
       const pdfBase64 = pdf.output('datauristring').split(',')[1];
 
-      const response = await fetch('/api/send-certificate', {
+      const response = await fetch('/api/send-credential', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -210,13 +184,11 @@ export default function EmailCertificateManager({ event, participants, authoriti
         setProcessedCount(prev => prev + 1);
         
         if (currentIndex < participants.length - 1) {
-          // Move to next participant
           setCurrentIndex(prev => prev + 1);
-          setCurrentSide('front');
           setStatus('generating');
         } else {
           setStatus('success');
-          toast.success(`Se han enviado ${participants.length} certificados con éxito.`);
+          toast.success(`Se han enviado ${participants.length} credenciales con éxito.`);
           setTimeout(onComplete, 2000);
         }
       } else {
@@ -290,14 +262,14 @@ export default function EmailCertificateManager({ event, participants, authoriti
             <div className="space-y-4">
               <div className="space-y-1">
                 <h3 className="text-2xl font-bold text-white tracking-tight">
-                  {status === 'generating' ? 'Generando Certificado' : 'Enviando Correo'}
+                  {status === 'generating' ? 'Generando Credencial' : 'Enviando Correo'}
                 </h3>
                 <p className="text-zinc-400 text-sm">
                   {participants.length > 1 ? (
                     `Procesando ${currentIndex + 1} de ${participants.length}: ${participant?.name}`
                   ) : (
                     status === 'generating' 
-                      ? `Preparando el documento para ${participant?.name}`
+                      ? `Preparando la credencial para ${participant?.name}`
                       : `Enviando a ${participant?.email}`
                   )}
                 </p>
@@ -322,8 +294,8 @@ export default function EmailCertificateManager({ event, participants, authoriti
               <h3 className="text-2xl font-bold text-white tracking-tight">¡Enviado con Éxito!</h3>
               <p className="text-zinc-400">
                 {participants.length > 1 
-                  ? `Se han enviado ${participants.length} certificados correctamente.` 
-                  : `El certificado ha sido enviado correctamente a ${participant?.email}.`}
+                  ? `Se han enviado ${participants.length} credenciales correctamente.` 
+                  : `La credencial ha sido enviada correctamente a ${participant?.email}.`}
               </p>
             </div>
             <button
@@ -354,7 +326,6 @@ export default function EmailCertificateManager({ event, participants, authoriti
               <button
                 onClick={() => {
                   setStatus('generating');
-                  setCurrentSide('front');
                 }}
                 className="flex-1 px-4 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-900/20"
               >
@@ -367,12 +338,11 @@ export default function EmailCertificateManager({ event, participants, authoriti
         {/* Hidden Stage for Rendering */}
         <div 
           className="fixed top-0 left-0 pointer-events-none overflow-hidden"
-          style={{ width: 800, height: 565, opacity: 0, zIndex: -1000 }}
+          style={{ width: 400, height: 600, opacity: 0, zIndex: -1000 }}
         >
-          <Stage width={800} height={565} ref={stageRef}>
+          <Stage width={400} height={600} ref={stageRef}>
             <Layer>
-              {currentSide === 'front' && bgImageFront && <KonvaImage image={bgImageFront} width={800} height={565} />}
-              {currentSide === 'back' && bgImageBack && <KonvaImage image={bgImageBack} width={800} height={565} />}
+              {bgImage && <KonvaImage image={bgImage} width={400} height={600} />}
               {template?.elements?.map((el) => {
                 let x = el.x;
                 let authIndex = -1;
@@ -387,7 +357,7 @@ export default function EmailCertificateManager({ event, participants, authoriti
                 if (authIndex !== -1) {
                   const totalAuths = event.authorities?.length || 0;
                   if (authIndex >= totalAuths) return null;
-                  x = getAuthorityX(authIndex, totalAuths, el.width || 0, 800);
+                  x = getAuthorityX(authIndex, totalAuths, el.width || 0, 400);
                 }
 
                 if (el.type === 'qr_code') {

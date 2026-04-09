@@ -286,10 +286,11 @@ export default function DesignEditor({
                   key={v.id}
                   onClick={() => {
                     const isCentered = v.id === 'participant_name' || v.id === 'participant_id_number';
+                    const isSignature = v.id.endsWith('_signature');
                     const newElement: TemplateElement = {
                       id: Math.random().toString(36).substr(2, 9),
-                      type: 'variable',
-                      content: v.id,
+                      type: isSignature ? 'variable' : 'text',
+                      content: isSignature ? v.id : `{${v.id}}`,
                       x: isCentered ? 0 : 100,
                       y: v.id === 'participant_name' ? 250 : v.id === 'participant_id_number' ? 290 : 150,
                       fontSize: v.id === 'participant_name' ? 36 : 24,
@@ -436,6 +437,26 @@ export default function DesignEditor({
                     </div>
                   </div>
 
+                  <div>
+                    <label className="text-xs font-medium text-zinc-500 mb-1 block">Estilo de Fuente</label>
+                    <div className="grid grid-cols-3 gap-1 bg-zinc-800 p-1 rounded-lg">
+                      {(['normal', 'bold', 'italic'] as const).map((style) => (
+                        <button
+                          key={style}
+                          onClick={() => updateElement(selectedElement.id, { fontStyle: style })}
+                          className={cn(
+                            "py-1.5 text-[10px] font-bold uppercase rounded-md transition-all",
+                            selectedElement.fontStyle === style 
+                              ? "bg-indigo-600 text-white shadow-sm" 
+                              : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
+                          )}
+                        >
+                          {style === 'normal' ? 'Normal' : style === 'bold' ? 'Negrita' : 'Cursiva'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   {selectedElement.align === 'center' && (
                     <p className="text-[10px] text-indigo-400/60 italic">
                       * Centrado automático activado (Ancho: 800px)
@@ -542,7 +563,10 @@ export default function DesignEditor({
                           stroke={el.fill}
                           strokeWidth={2}
                           draggable={isEditor}
-                          onClick={() => setSelectedId(el.id)}
+                          onMouseDown={(e) => {
+                            e.cancelBubble = true;
+                            setSelectedId(el.id);
+                          }}
                           onDragEnd={(e) => {
                             updateElement(el.id, {
                               x: e.target.x(),
@@ -579,7 +603,10 @@ export default function DesignEditor({
                           strokeScaleEnabled={false}
                           dash={[4, 4]}
                           draggable={isEditor && !isDynamic}
-                          onClick={() => setSelectedId(el.id)}
+                          onMouseDown={(e) => {
+                            e.cancelBubble = true;
+                            setSelectedId(el.id);
+                          }}
                           onDragEnd={(e) => {
                             updateElement(el.id, {
                               x: e.target.x(),
@@ -620,7 +647,18 @@ export default function DesignEditor({
                       align={isDynamic ? 'center' : (el.align || 'left')}
                       width={el.width}
                       draggable={isEditor && !isDynamic}
-                      onClick={() => setSelectedId(el.id)}
+                      onMouseDown={(e) => {
+                        e.cancelBubble = true;
+                        setSelectedId(el.id);
+                      }}
+                      onDblClick={() => {
+                        if (el.type === 'text') {
+                          const newContent = window.prompt('Editar texto:', el.content);
+                          if (newContent !== null) {
+                            updateElement(el.id, { content: newContent });
+                          }
+                        }
+                      }}
                       onDragEnd={(e) => {
                         updateElement(el.id, {
                           x: e.target.x(),

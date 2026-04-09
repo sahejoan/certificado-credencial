@@ -6,14 +6,17 @@ import ParticipantList from './components/ParticipantList';
 import DesignEditor from './components/DesignEditor';
 import AuthorityList from './components/AuthorityList';
 import UserManagement from './components/UserManagement';
+import Reports from './components/Reports';
 import Modal from './components/Modal';
 import CertificatePreview from './components/CertificatePreview';
 import CredentialPreview from './components/CredentialPreview';
 import VerificationPage from './components/VerificationPage';
 import BulkPrintManager from './components/BulkPrintManager';
 import EmailCertificateManager from './components/EmailCertificateManager';
+import EmailCredentialManager from './components/EmailCredentialManager';
 import { compressImage } from './lib/imageUtils';
 import { Event, Participant, Role, Template, Authority, User, UserRole } from './types';
+import { ROLES } from './constants';
 import { 
   Shield, 
   Award, 
@@ -231,7 +234,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'events' | 'participants' | 'design' | 'authorities' | 'users'>('events');
+  const [activeTab, setActiveTab] = useState<'events' | 'participants' | 'design' | 'authorities' | 'users' | 'reports'>('events');
   const [user, setUser] = useState<User | null>(null);
   const isEditor = user?.role === 'admin' || user?.role === 'editor';
   const isAdmin = user?.role === 'admin';
@@ -266,7 +269,8 @@ export default function App() {
   const [previewCredentialParticipant, setPreviewCredentialParticipant] = useState<Participant | null>(null);
   const [isBulkPrinting, setIsBulkPrinting] = useState(false);
   const [bulkPrintType, setBulkPrintType] = useState<'certificates' | 'credentials'>('certificates');
-  const [emailSendingParticipant, setEmailSendingParticipant] = useState<Participant | null>(null);
+  const [emailSendingParticipants, setEmailSendingParticipants] = useState<Participant[]>([]);
+  const [emailSendingType, setEmailSendingType] = useState<'certificates' | 'credentials'>('certificates');
   const [designType, setDesignType] = useState<'certificate' | 'credential'>('certificate');
   const [certificateSide, setCertificateSide] = useState<'front' | 'back'>('front');
   const [verificationId, setVerificationId] = useState<string | null>(null);
@@ -311,7 +315,7 @@ export default function App() {
         const pendingRef = doc(db, 'users', tempUid);
         const pendingDoc = await getDoc(pendingRef);
         
-        let initialRole: UserRole = firebaseUser.email === 'sahejoan@gmail.com' ? 'admin' : 'viewer';
+        let initialRole: UserRole = firebaseUser.email?.toLowerCase() === 'sahejoan@gmail.com' ? 'admin' : 'viewer';
         let initialName = firebaseUser.displayName || undefined;
 
         if (pendingDoc.exists()) {
@@ -335,7 +339,7 @@ export default function App() {
       } else if (userDoc.exists()) {
         const userData = userDoc.data() as User;
         // Force admin role for the specific email if not already set
-        if (firebaseUser.email === 'sahejoan@gmail.com' && userData.role !== 'admin') {
+        if (firebaseUser.email?.toLowerCase() === 'sahejoan@gmail.com' && userData.role !== 'admin') {
           await updateDoc(userRef, { role: 'admin' });
           userData.role = 'admin';
         }
@@ -454,7 +458,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (verificationId && !user) {
+    if (verificationId) {
       const fetchVerificationData = async () => {
         setIsVerifying(true);
         try {
@@ -468,21 +472,17 @@ export default function App() {
             }
           }
         } catch (error) {
-          console.error('Error fetching verification data:', error);
+          handleFirestoreError(error, OperationType.GET, `participants/${verificationId}`);
         } finally {
           setIsVerifying(false);
         }
       };
       fetchVerificationData();
     }
-  }, [verificationId, user]);
+  }, [verificationId]);
 
-  const verifiedParticipant = verificationId 
-    ? (user ? participants.find(p => p.id === verificationId) : verificationParticipant) 
-    : null;
-  const verifiedEvent = verifiedParticipant 
-    ? (user ? events.find(e => e.id === verifiedParticipant.eventId) : verificationEvent) 
-    : null;
+  const verifiedParticipant = verificationId ? verificationParticipant : null;
+  const verifiedEvent = verifiedParticipant ? verificationEvent : null;
 
   if (!isAuthReady) {
     return (
@@ -510,12 +510,6 @@ export default function App() {
       <VerificationPage 
         participant={verifiedParticipant || null}
         event={verifiedEvent || null}
-        onClose={() => {
-          window.history.replaceState({}, '', window.location.pathname);
-          setVerificationId(null);
-          setVerificationParticipant(null);
-          setVerificationEvent(null);
-        }}
       />
     );
   }
@@ -659,7 +653,7 @@ export default function App() {
       }
 
       return (
-        <div className="min-h-screen bg-zinc-950 flex flex-col lg:flex-row relative overflow-hidden font-sans">
+        <div className="min-h-screen bg-zinc-950 flex flex-col lg:flex-row relative font-sans">
           {/* Background Atmosphere */}
           <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
             <motion.div 
@@ -721,12 +715,12 @@ export default function App() {
           </div>
 
           {/* Right Side: Form */}
-          <div className="lg:w-1/2 flex items-center justify-center p-8 lg:p-12 relative z-10">
+          <div className="lg:w-1/2 flex flex-col justify-start lg:justify-center p-8 lg:p-12 relative z-10 overflow-y-auto">
             <motion.div 
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
-              className="w-full max-w-xl bg-zinc-900/40 backdrop-blur-3xl border border-white/10 rounded-[60px] p-10 md:p-14 shadow-2xl relative"
+              className="w-full max-w-xl bg-zinc-900/40 backdrop-blur-3xl border border-white/10 rounded-[60px] p-10 md:p-14 shadow-2xl relative mb-20"
             >
               <form onSubmit={async (e) => {
                 e.preventDefault();
@@ -840,10 +834,12 @@ export default function App() {
                       className="w-full bg-zinc-950/50 border border-white/10 rounded-[28px] py-5 px-7 text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all appearance-none cursor-pointer text-lg font-medium"
                     >
                       <option value="asistente">Asistente</option>
-                      <option value="logistica">Logística</option>
+                      <option value="comision_cultura">Comisión de Cultura</option>
+                      <option value="comision_decoracion">Comisión de Decoración</option>
+                      <option value="comision_logistica">Comisión de Logística</option>
+                      <option value="comision_protocolo">Comisión de Protocolo</option>
+                      <option value="comision_tecnologia">Comisión de Tecnología</option>
                       <option value="ponente">Ponente</option>
-                      <option value="protocolo">Protocolo</option>
-                      <option value="tecnico_informatico">Técnico Informática</option>
                     </select>
                     <div className="absolute right-7 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-600 group-focus-within:text-indigo-500 transition-colors">
                       <ChevronRight className="w-5 h-5 rotate-90" />
@@ -883,7 +879,7 @@ export default function App() {
     }
 
     return (
-      <div className="min-h-screen md:h-screen bg-zinc-950 flex flex-col md:flex-row relative md:overflow-hidden font-sans">
+      <div className="min-h-screen bg-zinc-950 flex flex-col md:flex-row relative font-sans">
         {/* Background Atmosphere */}
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
           <motion.div 
@@ -1006,7 +1002,7 @@ export default function App() {
         </div>
 
         {/* Right Side: Login Panel */}
-        <div className="w-full md:w-[650px] bg-zinc-950/50 backdrop-blur-3xl border-l border-white/5 flex flex-col justify-center p-10 md:p-24 relative z-10 md:overflow-y-auto no-scrollbar">
+        <div className="w-full md:w-[650px] bg-zinc-950/50 backdrop-blur-3xl border-l border-white/5 flex flex-col justify-start md:justify-center p-10 md:p-24 relative z-10 overflow-y-auto no-scrollbar min-h-screen md:min-h-0">
           {/* Floating decorative elements for login panel */}
           <div className="absolute top-20 right-20 w-32 h-32 bg-indigo-500/5 blur-3xl rounded-full"></div>
           <div className="absolute bottom-20 left-20 w-32 h-32 bg-purple-500/5 blur-3xl rounded-full"></div>
@@ -1015,7 +1011,7 @@ export default function App() {
             initial={{ opacity: 0, x: 50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay: 0.3 }}
-            className="w-full max-w-md mx-auto"
+            className="w-full max-w-md mx-auto pb-20"
           >
             <div className="mb-8">
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600/10 text-indigo-400 text-[11px] font-black uppercase tracking-[0.4em] rounded-full mb-4 border border-indigo-500/20">
@@ -1063,8 +1059,8 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Google Login for Admin only */}
-              {email === 'sahejoan@gmail.com' && !isRegistering && (
+              {/* Google Login */}
+              {!isRegistering && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -1147,7 +1143,7 @@ export default function App() {
                   © {new Date().getFullYear()} CertiEvent
                 </p>
                 <p className="text-[11px] font-bold text-indigo-400/60 uppercase tracking-[0.2em]">
-                  Desarrollado por: Comité de informática
+                  Desarrollado por: Comité de Informática
                 </p>
               </div>
             </div>
@@ -1467,26 +1463,32 @@ export default function App() {
           onResetAttendance={handleResetAttendance}
           onDeleteParticipant={handleDeleteParticipant}
           onEditParticipant={(p) => { setEditingParticipant(p); setIsParticipantModalOpen(true); }}
-          onSendEmail={(p) => setEmailSendingParticipant(p)}
+          onSendEmail={(p) => setEmailSendingParticipants([p])}
           onBulkPrintCertificates={() => {
-            const isEditor = user?.role === 'admin' || user?.role === 'editor';
-            const toPrint = participants.filter(p => p.eventId === selectedEventId && (isEditor || p.attended));
+            const toPrint = participants.filter(p => p.eventId === selectedEventId && p.attended);
             if (toPrint.length === 0) {
-              toast.error(isEditor ? 'No hay participantes registrados para generar certificados.' : 'No hay participantes con asistencia confirmada para generar certificados.');
+              toast.error('No hay participantes con asistencia confirmada para generar certificados.');
               return;
             }
             setBulkPrintType('certificates');
             setIsBulkPrinting(true);
           }}
           onBulkPrintCredentials={() => {
-            const isEditor = user?.role === 'admin' || user?.role === 'editor';
-            const toPrint = participants.filter(p => p.eventId === selectedEventId && (isEditor || p.attended));
+            const toPrint = participants.filter(p => p.eventId === selectedEventId && p.attended);
             if (toPrint.length === 0) {
-              toast.error(isEditor ? 'No hay participantes registrados para generar credenciales.' : 'No hay participantes con asistencia confirmada para generar credenciales.');
+              toast.error('No hay participantes con asistencia confirmada para generar credenciales.');
               return;
             }
             setBulkPrintType('credentials');
             setIsBulkPrinting(true);
+          }}
+          onBulkSendCertificates={(p) => {
+            setEmailSendingParticipants(p);
+            setEmailSendingType('certificates');
+          }}
+          onBulkSendCredentials={(p) => {
+            setEmailSendingParticipants(p);
+            setEmailSendingType('credentials');
           }}
         />
       )}
@@ -1512,6 +1514,10 @@ export default function App() {
 
       {activeTab === 'users' && isAdmin && (
         <UserManagement currentUser={user} />
+      )}
+
+      {activeTab === 'reports' && (
+        <Reports participants={participants} events={events} />
       )}
 
       {activeTab === 'design' && (
@@ -1837,11 +1843,9 @@ export default function App() {
               defaultValue={editingParticipant?.role || 'asistente'}
               className="w-full px-4 py-2 bg-zinc-800 border border-white/10 rounded-xl text-white outline-none focus:ring-2 focus:ring-indigo-500"
             >
-              <option value="asistente">Asistente</option>
-              <option value="logistica">Logística</option>
-              <option value="ponente">Ponente</option>
-              <option value="protocolo">Protocolo</option>
-              <option value="tecnico_informatico">Técnico Informática</option>
+              {ROLES.map(role => (
+                <option key={role.id} value={role.id}>{role.label}</option>
+              ))}
             </select>
           </div>
           <button type="submit" className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors">
@@ -1998,7 +2002,7 @@ export default function App() {
           onClose={() => setPreviewParticipant(null)}
           onSendEmail={(p) => {
             setPreviewParticipant(null);
-            setEmailSendingParticipant(p);
+            setEmailSendingParticipants([p]);
           }}
         />
       )}
@@ -2022,12 +2026,21 @@ export default function App() {
         />
       )}
 
-      {emailSendingParticipant && selectedEvent && (
+      {emailSendingParticipants.length > 0 && selectedEvent && emailSendingType === 'certificates' && (
         <EmailCertificateManager
           event={selectedEvent}
-          participant={emailSendingParticipant}
+          participants={emailSendingParticipants.filter(p => p.attended)}
           authorities={authorities}
-          onComplete={() => setEmailSendingParticipant(null)}
+          onComplete={() => setEmailSendingParticipants([])}
+        />
+      )}
+
+      {emailSendingParticipants.length > 0 && selectedEvent && emailSendingType === 'credentials' && (
+        <EmailCredentialManager
+          event={selectedEvent}
+          participants={emailSendingParticipants}
+          authorities={authorities}
+          onComplete={() => setEmailSendingParticipants([])}
         />
       )}
     </Layout>

@@ -18,17 +18,13 @@ interface ParticipantListProps {
   onEditParticipant: (participant: Participant) => void;
   onBulkPrintCertificates: () => void;
   onBulkPrintCredentials: () => void;
+  onBulkSendCertificates: (participants: Participant[]) => void;
+  onBulkSendCredentials: (participants: Participant[]) => void;
   onSendEmail: (participant: Participant) => void;
   user: User | null;
 }
 
-const ROLES: { id: Role; label: string; color: string }[] = [
-  { id: 'asistente', label: 'Asistente', color: 'bg-blue-100 text-blue-700' },
-  { id: 'logistica', label: 'Logística', color: 'bg-neutral-100 text-neutral-700' },
-  { id: 'ponente', label: 'Ponente', color: 'bg-purple-100 text-purple-700' },
-  { id: 'protocolo', label: 'Protocolo', color: 'bg-indigo-100 text-indigo-700' },
-  { id: 'tecnico_informatico', label: 'Técnico Informática', color: 'bg-cyan-100 text-cyan-700' },
-];
+import { ROLES } from '../constants';
 
 export default function ParticipantList({ 
   participants, 
@@ -44,6 +40,8 @@ export default function ParticipantList({
   onEditParticipant,
   onBulkPrintCertificates,
   onBulkPrintCredentials,
+  onBulkSendCertificates,
+  onBulkSendCredentials,
   onSendEmail,
   user
 }: ParticipantListProps) {
@@ -62,7 +60,9 @@ export default function ParticipantList({
       const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) || 
                            p.email.toLowerCase().includes(search.toLowerCase()) ||
                            p.idNumber.toLowerCase().includes(search.toLowerCase());
-      const matchesRole = roleFilter === 'all' || p.role === roleFilter;
+      const matchesRole = roleFilter === 'all' || 
+                         p.role === roleFilter || 
+                         ROLES.find(r => r.id === roleFilter)?.label.toLowerCase() === p.role?.toLowerCase();
       const matchesEvent = selectedEventId === 'all' || p.eventId === selectedEventId;
       return matchesSearch && matchesRole && matchesEvent;
     });
@@ -92,7 +92,7 @@ export default function ParticipantList({
       return;
     }
     
-    const targetParticipants = isEditor ? filteredParticipants : attendedParticipants;
+    const targetParticipants = attendedParticipants;
     
     if (!isEditor && !isEventStarted) {
       toast.error(`Los certificados estarán disponibles el ${formatDate(selectedEvent?.date || '')}`);
@@ -100,14 +100,14 @@ export default function ParticipantList({
     }
     
     if (targetParticipants.length === 0) {
-      toast.error(isEditor ? 'No hay participantes registrados para generar certificados.' : 'No hay participantes con asistencia confirmada para generar certificados.');
+      toast.error('No hay participantes con asistencia confirmada para generar certificados.');
       return;
     }
     
     if (method === 'print') {
       onBulkPrintCertificates();
     } else {
-      toast.success(`Enviando certificados por correo a ${targetParticipants.length} participantes...`);
+      onBulkSendCertificates(targetParticipants);
     }
   };
 
@@ -117,17 +117,17 @@ export default function ParticipantList({
       return;
     }
     
-    const targetParticipants = isEditor ? filteredParticipants : attendedParticipants;
+    const targetParticipants = attendedParticipants;
     
     if (targetParticipants.length === 0) {
-      toast.error(isEditor ? 'No hay participantes registrados para generar credenciales.' : 'No hay participantes con asistencia confirmada para generar credenciales.');
+      toast.error('No hay participantes con asistencia confirmada para generar credenciales.');
       return;
     }
     
     if (method === 'print') {
       onBulkPrintCredentials();
     } else {
-      toast.success(`Enviando credenciales por correo a ${targetParticipants.length} participantes...`);
+      onBulkSendCredentials(targetParticipants);
     }
   };
 
@@ -308,10 +308,16 @@ export default function ParticipantList({
                   </td>
                   <td className="px-6 py-4">
                     <span className={cn(
-                      "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider whitespace-nowrap",
-                      ROLES.find(r => r.id === participant.role)?.color.replace('text-', 'text-').replace('bg-', 'bg-opacity-20 bg-')
+                      "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider whitespace-nowrap border",
+                      ROLES.find(r => 
+                        r.id.toLowerCase() === participant.role?.toLowerCase() || 
+                        r.label.toLowerCase() === participant.role?.toLowerCase()
+                      )?.color || 'bg-zinc-700 text-zinc-200 border-zinc-500'
                     )}>
-                      {ROLES.find(r => r.id === participant.role)?.label}
+                      {ROLES.find(r => 
+                        r.id.toLowerCase() === participant.role?.toLowerCase() || 
+                        r.label.toLowerCase() === participant.role?.toLowerCase()
+                      )?.label || participant.role}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-sm text-zinc-500">

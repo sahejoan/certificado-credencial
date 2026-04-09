@@ -1,12 +1,12 @@
 import React from 'react';
-import { Calendar, Users, Award, Layout as LayoutIcon, Plus, ChevronLeft, LogOut, Shield } from 'lucide-react';
+import { Calendar, Users, Award, Layout as LayoutIcon, Plus, ChevronLeft, LogOut, Shield, BarChart3 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { User } from '../types';
 
 interface LayoutProps {
   children: React.ReactNode;
-  activeTab: 'events' | 'participants' | 'design' | 'authorities' | 'users';
-  setActiveTab: (tab: 'events' | 'participants' | 'design' | 'authorities' | 'users') => void;
+  activeTab: 'events' | 'participants' | 'design' | 'authorities' | 'users' | 'reports';
+  setActiveTab: (tab: 'events' | 'participants' | 'design' | 'authorities' | 'users' | 'reports') => void;
   user: User | null;
   onLogout: () => void;
 }
@@ -17,6 +17,7 @@ export default function Layout({ children, activeTab, setActiveTab, user, onLogo
     { id: 'participants', label: 'Participantes', icon: Users },
     { id: 'authorities', label: 'Autoridades', icon: Award },
     { id: 'design', label: 'Diseñador', icon: LayoutIcon },
+    { id: 'reports', label: 'Reportes', icon: BarChart3 },
   ];
 
   if (user?.role === 'admin') {
@@ -104,7 +105,7 @@ export default function Layout({ children, activeTab, setActiveTab, user, onLogo
           </div>
         </header>
 
-        <div className="flex-1 overflow-auto p-8 no-scrollbar">
+        <div className="flex-1 overflow-auto p-8">
           {children}
         </div>
       </main>

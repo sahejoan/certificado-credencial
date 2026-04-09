@@ -5,23 +5,26 @@ import { Participant, Event } from '../types';
  * In a real-world scenario, this would call an API like Resend, SendGrid, or a custom backend.
  */
 export async function sendRegistrationEmail(participant: Participant, event: Event) {
-  console.log(`[EMAIL SIMULATION] Sending registration email to ${participant.email}`);
-  console.log(`Subject: Registro Exitoso - ${event.name}`);
-  console.log(`Body: Hola ${participant.name}, te has registrado exitosamente para el evento ${event.name}.`);
-  
-  // If you have a Resend API key, you could implement it here:
-  /*
-  const response = await fetch('/api/send-email', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      to: participant.email,
-      subject: `Registro Exitoso - ${event.name}`,
-      participant,
-      event
-    })
-  });
-  */
+  try {
+    const response = await fetch('/api/send-registration-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: participant.email,
+        name: participant.name,
+        eventName: event.name
+      })
+    });
 
-  return true;
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('Error sending registration email:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error in sendRegistrationEmail:', error);
+    return false;
+  }
 }

@@ -37,7 +37,7 @@ service cloud.firestore {
     //   - eventId: string (required, immutable) - Event ID
     //   - name: string (required, size < 100) - Participant name
     //   - email: string (required, format: email) - Participant email
-    //   - role: string (required, enum: ['asistente', 'docente', 'estudiante', 'logistica', 'organizador', 'ponente', 'protocolo', 'tecnico_informatico']) - Participant role
+    //   - role: string (required, enum: ['asistente', 'comision_cultura', 'comision_decoracion', 'comision_logistica', 'comision_protocolo', 'comision_tecnologia', 'ponente']) - Participant role
     //   - registrationDate: number (required, immutable) - Registration timestamp
     //   - attended: bool (required) - Attendance status
     //
@@ -69,19 +69,34 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
+    function isMainAdmin() {
+      return isAuthenticated() && 
+             request.auth.token.email != null && 
+             request.auth.token.email.lower() == "sahejoan@gmail.com";
+    }
+
     function isAdmin() {
-      return isAuthenticated() && (
-        (request.auth.token.email == "sahejoan@gmail.com") ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role == 'admin')
+      return isMainAdmin() || (
+        isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
       );
     }
 
     function isEditor() {
-      return isAuthenticated() && (isAdmin() || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role == 'editor'));
+      return isAdmin() || (
+        isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'editor'
+      );
     }
 
     function isViewer() {
-      return isAuthenticated() && (isEditor() || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role == 'viewer'));
+      return isEditor() || (
+        isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'viewer'
+      );
     }
 
     function hasOnlyAllowedFields(fields) {
@@ -101,17 +116,14 @@ service cloud.firestore {
     // ===============================================================
 
     function isValidUser(data) {
-      return hasRequiredFields(['uid', 'email', 'role', 'createdAt']) &&
-             hasOnlyAllowedFields(['uid', 'email', 'displayName', 'photoURL', 'role', 'createdAt', 'updatedAt']) &&
-             data.email is string && isValidEmail(data.email) &&
-             data.role in ['admin', 'editor', 'viewer'] &&
-             data.createdAt is number;
+      return data.email is string && isValidEmail(data.email) &&
+             data.role in ['admin', 'editor', 'viewer'];
     }
 
     function isValidSelfUser(data) {
       return isValidUser(data) &&
              data.uid == request.auth.uid &&
-             data.email == request.auth.token.email;
+             data.email.lower() == request.auth.token.email.lower();
     }
 
     function isValidEvent(data) {
@@ -136,7 +148,7 @@ service cloud.firestore {
              data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
              isValidEmail(data.email) &&
              (!('idNumber' in data) || (data.idNumber is string && data.idNumber.size() > 0 && data.idNumber.size() < 20)) &&
-             data.role in ['asistente', 'logistica', 'ponente', 'protocolo', 'tecnico_informatico'] &&
+             data.role in ['asistente', 'comision_cultura', 'comision_decoracion', 'comision_logistica', 'comision_protocolo', 'comision_tecnologia', 'ponente'] &&
              (!('registrationDate' in data) || data.registrationDate is number) &&
              (!('createdAt' in data) || data.createdAt is number) &&
              (!('updatedAt' in data) || data.updatedAt is number) &&
@@ -162,18 +174,11 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && (
-        (isOwner(userId) && isValidSelfUser(request.resource.data) && (
-          request.resource.data.role == 'viewer' || 
-          (request.auth.token.email == "sahejoan@gmail.com" && request.resource.data.role == 'admin')
-        )) ||
-        (isAdmin() && isValidUser(request.resource.data))
+      allow write: if isAuthenticated() && (
+        (request.auth.token.email != null && request.auth.token.email.lower() == "sahejoan@gmail.com") ||
+        request.auth.uid == userId ||
+        isAdmin()
       );
-      allow update: if isAuthenticated() && (
-        (isOwner(userId) && isValidSelfUser(request.resource.data) && request.resource.data.role == resource.data.role) ||
-        (isAdmin() && isValidUser(request.resource.data))
-      );
-      allow delete: if isAdmin();
     }
 
     match /events/{eventId} {

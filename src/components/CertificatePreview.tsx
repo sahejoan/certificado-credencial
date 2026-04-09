@@ -4,7 +4,8 @@ import { Download, X, ChevronLeft, Mail, FileDown, Printer } from 'lucide-react'
 import QRCode from 'qrcode';
 import * as jspdf from 'jspdf';
 import { Event, Participant, Template, Authority } from '../types';
-import { formatDate, getAuthorityX } from '../lib/utils';
+import { formatDate, getAuthorityX, getVerificationUrl } from '../lib/utils';
+import { ROLES } from '../constants';
 
 const jsPDFClass = (jspdf as any).jsPDF || (jspdf as any).default || jspdf;
 
@@ -103,7 +104,7 @@ export default function CertificatePreview({ event, participant, authorities, on
           for (const el of t.elements) {
             if (el.type === 'qr_code') {
               try {
-                const verificationUrl = `${window.location.origin}${window.location.pathname}?verify=${participant.id}`;
+                const verificationUrl = getVerificationUrl(participant.id);
                 const dataUrl = await QRCode.toDataURL(verificationUrl, {
                   margin: 0,
                   color: {
@@ -194,7 +195,13 @@ export default function CertificatePreview({ event, participant, authorities, on
         const formattedNumbers = numbers.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
         return `${prefix}-${formattedNumbers}`;
       }
-      case 'participant_role': return participant.role.replace(/_/g, ' ').charAt(0).toUpperCase() + participant.role.replace(/_/g, ' ').slice(1);
+      case 'participant_role': {
+        const role = ROLES.find(r => 
+          r.id.toLowerCase() === participant.role?.toLowerCase() || 
+          r.label.toLowerCase() === participant.role?.toLowerCase()
+        );
+        return role ? role.label : participant.role;
+      }
       case 'event_name': return event.name;
       case 'event_date': return formatDate(event.date);
       default: return '';
@@ -222,21 +229,42 @@ export default function CertificatePreview({ event, participant, authorities, on
         format: [800, 565]
       });
 
+      const captureStage = async (stage: any) => {
+        if (!stage) return null;
+        
+        // Try to capture, with retries if blank
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const uri = stage.toDataURL({ pixelRatio: 2 });
+          
+          // Check if it's blank (very small data URL or mostly white)
+          // A simple check: if it's shorter than 1000 chars, it's likely blank or failed
+          if (uri.length > 1000) return uri;
+          
+          // Wait a bit before retry
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+        return stage.toDataURL({ pixelRatio: 2 });
+      };
+
       // Capture Front
       if (stageRefFront.current) {
-        const frontUri = stageRefFront.current.toDataURL({ pixelRatio: 2 });
-        pdf.setFillColor(255, 255, 255);
-        pdf.rect(0, 0, 800, 565, 'F');
-        pdf.addImage(frontUri, 'PNG', 0, 0, 800, 565);
+        const frontUri = await captureStage(stageRefFront.current);
+        if (frontUri) {
+          pdf.setFillColor(255, 255, 255);
+          pdf.rect(0, 0, 800, 565, 'F');
+          pdf.addImage(frontUri, 'PNG', 0, 0, 800, 565);
+        }
       }
 
       // Capture Back if exists
       if (hasBackSide && stageRefBack.current) {
-        const backUri = stageRefBack.current.toDataURL({ pixelRatio: 2 });
-        pdf.addPage([800, 565], 'landscape');
-        pdf.setFillColor(255, 255, 255);
-        pdf.rect(0, 0, 800, 565, 'F');
-        pdf.addImage(backUri, 'PNG', 0, 0, 800, 565);
+        const backUri = await captureStage(stageRefBack.current);
+        if (backUri) {
+          pdf.addPage([800, 565], 'landscape');
+          pdf.setFillColor(255, 255, 255);
+          pdf.rect(0, 0, 800, 565, 'F');
+          pdf.addImage(backUri, 'PNG', 0, 0, 800, 565);
+        }
       }
 
       pdf.save(`Certificado_${participant.name.replace(/\s+/g, '_')}.pdf`);

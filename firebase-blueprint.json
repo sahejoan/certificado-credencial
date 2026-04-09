@@ -45,7 +45,7 @@
         "idNumber": { "type": "string", "description": "Cédula de Identidad" },
         "role": { 
           "type": "string", 
-          "enum": ["asistente", "docente", "estudiante", "logistica", "organizador", "ponente", "protocolo", "tecnico_informatico"] 
+          "enum": ["asistente", "comision_cultura", "comision_decoracion", "comision_logistica", "comision_protocolo", "comision_tecnologia", "ponente"] 
         },
         "registrationDate": { "type": "number" },
         "attended": { "type": "boolean" }

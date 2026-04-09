@@ -1,14 +1,14 @@
 import React from 'react';
 import { CheckCircle, XCircle, Award, Calendar, User, ShieldCheck } from 'lucide-react';
 import { Event, Participant } from '../types';
+import { ROLES } from '../constants';
 
 interface VerificationPageProps {
   participant: Participant | null;
   event: Event | null;
-  onClose: () => void;
 }
 
-export default function VerificationPage({ participant, event, onClose }: VerificationPageProps) {
+export default function VerificationPage({ participant, event }: VerificationPageProps) {
   const isValid = !!(participant && event);
 
   return (
@@ -22,7 +22,7 @@ export default function VerificationPage({ participant, event, onClose }: Verifi
           <div className="mb-8">
             <div className="flex items-center gap-2 text-indigo-400 mb-2 justify-center">
               <ShieldCheck className="w-6 h-6" />
-              <span className="font-bold text-lg tracking-tight text-white">CertiEvent Verify</span>
+              <span className="font-bold text-lg tracking-tight text-white">UPEL</span>
             </div>
             <div className="h-px w-12 bg-indigo-500/30 mx-auto" />
           </div>
@@ -44,7 +44,12 @@ export default function VerificationPage({ participant, event, onClose }: Verifi
                   <div>
                     <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Participante</p>
                     <p className="text-white font-bold">{participant.name}</p>
-                    <p className="text-xs text-zinc-400">{participant.role.charAt(0).toUpperCase() + participant.role.slice(1)}</p>
+                    <p className="text-xs text-zinc-400">
+                      {ROLES.find(r => 
+                        r.id.toLowerCase() === participant.role?.toLowerCase() || 
+                        r.label.toLowerCase() === participant.role?.toLowerCase()
+                      )?.label || participant.role}
+                    </p>
                   </div>
                 </div>
 
@@ -79,15 +84,8 @@ export default function VerificationPage({ participant, event, onClose }: Verifi
             </>
           )}
 
-          <button
-            onClick={onClose}
-            className="mt-10 w-full py-4 bg-zinc-800 text-white rounded-2xl font-bold hover:bg-zinc-700 transition-all border border-white/5"
-          >
-            Ir a la Aplicación
-          </button>
-          
-          <p className="mt-6 text-[10px] text-zinc-600 font-medium uppercase tracking-widest">
-            © 2026 CertiEvent Security Systems
+          <p className="mt-12 text-base text-white font-bold uppercase tracking-[0.2em]">
+            Comisión de Tecnología
           </p>
         </div>
       </div>

@@ -3,7 +3,7 @@ import { Stage, Layer, Text, Image as KonvaImage, Rect } from 'react-konva';
 import * as jspdf from 'jspdf';
 import QRCode from 'qrcode';
 import { Event, Participant, Authority, Template } from '../types';
-import { formatDate, getAuthorityX } from '../lib/utils';
+import { formatDate, getAuthorityX, getVerificationUrl } from '../lib/utils';
 
 // Handle both named and default export for jsPDF
 const jsPDFClass = (jspdf as any).jsPDF || (jspdf as any).default || jspdf;
@@ -136,7 +136,7 @@ export default function BulkPrintManager({ type, event, participants, authoritie
         const newQrImages: Record<string, HTMLImageElement> = {};
         for (const el of template.elements) {
           if (el.type === 'qr_code') {
-            const verificationUrl = `${window.location.origin}${window.location.pathname}?verify=${participant.id}`;
+            const verificationUrl = getVerificationUrl(participant.id);
             const dataUrl = await QRCode.toDataURL(verificationUrl, {
               margin: 0,
               color: {

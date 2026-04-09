@@ -11,10 +11,12 @@ export interface User {
 
 export type Role = 
   | 'asistente' 
-  | 'logistica' 
-  | 'ponente' 
-  | 'protocolo' 
-  | 'tecnico_informatico';
+  | 'comision_cultura'
+  | 'comision_decoracion'
+  | 'comision_logistica'
+  | 'comision_protocolo'
+  | 'comision_tecnologia'
+  | 'ponente';
 
 export interface Authority {
   id: string;

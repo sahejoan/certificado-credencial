@@ -18,3 +18,15 @@ export function getAuthorityX(index: number, total: number, elementWidth: number
   const spacing = stageWidth / (total + 1);
   return spacing * (index + 1) - (elementWidth / 2);
 }
+
+export function getVerificationUrl(participantId: string) {
+  let origin = window.location.origin;
+  
+  // Transform dev URL to pre URL for public access in AI Studio environment
+  if (origin.includes('ais-dev-')) {
+    origin = origin.replace('ais-dev-', 'ais-pre-');
+  }
+  
+  const pathname = window.location.pathname;
+  return `${origin}${pathname}?verify=${participantId}`;
+}
