@@ -14,6 +14,7 @@ import {
 import { 
   BarChart, 
   Bar, 
+  Cell,
   XAxis, 
   YAxis, 
   CartesianGrid, 
@@ -21,6 +22,7 @@ import {
   ResponsiveContainer, 
   AreaChart, 
   Area,
+  Legend,
 } from 'recharts';
 import { Participant, Event, Role } from '../types';
 import { ROLES } from '../constants';
@@ -58,7 +60,17 @@ export default function Dashboard({ participants, events }: DashboardProps) {
 
     // Option C: Registered vs Attended by Role
     const roleComparisonData = ROLES.map(role => {
-      const roleParticipants = filteredParticipants.filter(p => p.role === role.id);
+      const normalize = (str: string) => 
+        str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+      
+      const roleIdNorm = normalize(role.id);
+      const roleLabelNorm = normalize(role.label);
+
+      const roleParticipants = filteredParticipants.filter(p => {
+        if (!p.role) return false;
+        const pRoleNorm = normalize(p.role);
+        return pRoleNorm === roleIdNorm || pRoleNorm === roleLabelNorm;
+      });
       const registered = roleParticipants.length;
       const attended = roleParticipants.filter(p => p.attended).length;
       return {
@@ -180,7 +192,7 @@ export default function Dashboard({ participants, events }: DashboardProps) {
         <div className="lg:col-span-2 bg-zinc-900/50 border border-white/5 rounded-3xl p-8 backdrop-blur-xl">
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h3 className="text-lg font-bold text-white">Inscritos vs. Asistentes</h3>
+              <h3 className="text-lg font-bold text-white">Inscritos vs. Asistencias</h3>
               <p className="text-sm text-zinc-400">Desglose por comisión y rol</p>
             </div>
             <div className="flex items-center gap-4">
@@ -189,8 +201,8 @@ export default function Dashboard({ participants, events }: DashboardProps) {
                 <span className="text-xs text-zinc-400">Inscritos</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-indigo-500"></div>
-                <span className="text-xs text-zinc-400">Asistentes</span>
+                <div className="w-3 h-3 rounded-full bg-gradient-to-r from-indigo-500 via-rose-500 to-emerald-500"></div>
+                <span className="text-xs text-zinc-400">Asistencias</span>
               </div>
             </div>
           </div>
@@ -220,7 +232,11 @@ export default function Dashboard({ participants, events }: DashboardProps) {
                   itemStyle={{ color: '#fff' }}
                 />
                 <Bar dataKey="registered" name="Inscritos" fill="#3f3f46" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="attended" name="Asistentes" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="attended" name="Asistencias" radius={[4, 4, 0, 0]}>
+                  {stats.roleComparisonData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -369,6 +385,57 @@ export default function Dashboard({ participants, events }: DashboardProps) {
                 [...stats.roleComparisonData].sort((a, b) => b.attended - a.attended)[0]?.name || 'ninguna'
               }."
             </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-8">
+        {/* Attendance by Event */}
+        <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-8 backdrop-blur-xl">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h3 className="text-lg font-bold text-white">Rendimiento por Evento</h3>
+              <p className="text-sm text-zinc-400">Comparativa de asistencia entre tus eventos principales</p>
+            </div>
+            <BarChartIcon className="w-6 h-6 text-indigo-400" />
+          </div>
+          <div className="h-[350px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart 
+                data={events.map(event => {
+                  const eventParticipants = participants.filter(p => p.eventId === event.id);
+                  const total = eventParticipants.length;
+                  const attended = eventParticipants.filter(p => p.attended).length;
+                  return {
+                    name: event.name.length > 20 ? event.name.substring(0, 20) + '...' : event.name,
+                    inscritos: total,
+                    asistencias: attended
+                  };
+                }).sort((a, b) => b.inscritos - a.inscritos).slice(0, 6)}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
+                <XAxis 
+                  dataKey="name" 
+                  stroke="#71717a" 
+                  fontSize={12} 
+                  tickLine={false} 
+                  axisLine={false} 
+                />
+                <YAxis 
+                  stroke="#71717a" 
+                  fontSize={12} 
+                  tickLine={false} 
+                  axisLine={false} 
+                />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#18181b', border: '1px solid #ffffff10', borderRadius: '12px' }}
+                  itemStyle={{ color: '#fff' }}
+                />
+                <Legend />
+                <Bar dataKey="inscritos" name="Inscritos" fill="#3f3f46" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="asistencias" name="Asistencias" fill="#10b981" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
       </div>
