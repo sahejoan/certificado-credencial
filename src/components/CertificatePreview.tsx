@@ -329,7 +329,11 @@ export default function CertificatePreview({ event, participant, authorities, on
               if (authIndex !== -1) {
                 const totalAuths = event.authorities?.length || 0;
                 if (authIndex >= totalAuths) return null;
-                x = getAuthorityX(authIndex, totalAuths, el.width || 0, 800);
+                
+                // Only auto-align if the property is true or undefined
+                if (el.isAutoAligned !== false) {
+                  x = getAuthorityX(authIndex, totalAuths, el.width || 0, 800);
+                }
               }
 
               if (el.type === 'qr_code') {

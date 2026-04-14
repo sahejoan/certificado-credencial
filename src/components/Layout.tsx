@@ -16,7 +16,7 @@ export default function Layout({ children, activeTab, setActiveTab, user, onLogo
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'dashboard', label: 'Monitor', icon: LayoutDashboard },
     { id: 'events', label: 'Eventos', icon: Calendar },
     { id: 'participants', label: 'Participantes', icon: Users },
     { id: 'authorities', label: 'Autoridades', icon: Award },

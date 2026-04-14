@@ -22,8 +22,15 @@ export async function compressImage(base64Str: string, maxWidth = 1200, quality 
         return;
       }
 
+      // Clear canvas to ensure transparency is preserved
+      ctx.clearRect(0, 0, width, height);
       ctx.drawImage(img, 0, 0, width, height);
-      resolve(canvas.toDataURL('image/jpeg', quality));
+      
+      // Use image/webp if supported, as it handles transparency and compression well.
+      // Fallback to image/png for full transparency support if webp is not ideal.
+      // We avoid image/jpeg because it turns transparent areas black.
+      const outputFormat = base64Str.includes('image/png') || base64Str.includes('image/svg') ? 'image/png' : 'image/webp';
+      resolve(canvas.toDataURL(outputFormat, quality));
     };
     img.onerror = (err) => reject(err);
   });

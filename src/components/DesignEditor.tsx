@@ -505,6 +505,24 @@ export default function DesignEditor({
                       className="w-full h-9 p-1 bg-zinc-800 border border-white/5 rounded-lg"
                     />
                   </div>
+
+                  {(selectedElement.content.startsWith('auth') || selectedElement.id.startsWith('sig')) && (
+                    <div className="flex items-center justify-between p-3 bg-zinc-800/50 rounded-xl border border-white/5">
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-white">Auto-alinear</span>
+                        <span className="text-[10px] text-zinc-500">Centrar automáticamente</span>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedElement.isAutoAligned !== false}
+                          onChange={(e) => updateElement(selectedElement.id, { isAutoAligned: e.target.checked })}
+                          className="sr-only peer" 
+                        />
+                        <div className="w-9 h-5 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                      </label>
+                    </div>
+                  )}
                 </div>
 
                 <button
@@ -551,10 +569,15 @@ export default function DesignEditor({
                     if (match) authIndex = parseInt(match[1]) - 1;
                   }
 
+                  // Only auto-align if the property is true or undefined (default for authority elements)
+                  const shouldAutoAlign = el.isAutoAligned !== false;
+
                   if (authIndex !== -1) {
                     if (authIndex < authorityCount) {
-                      x = getAuthorityX(authIndex, authorityCount, el.width || 0, width);
-                      isDynamic = true;
+                      if (shouldAutoAlign) {
+                        x = getAuthorityX(authIndex, authorityCount, el.width || 0, width);
+                        isDynamic = true;
+                      }
                     } else {
                       return null; // Hide unused authorities
                     }
@@ -612,7 +635,7 @@ export default function DesignEditor({
                           strokeWidth={1}
                           strokeScaleEnabled={false}
                           dash={[4, 4]}
-                          draggable={isEditor && !isDynamic}
+                          draggable={isEditor}
                           onMouseDown={(e) => {
                             e.cancelBubble = true;
                             setSelectedId(el.id);
@@ -656,7 +679,7 @@ export default function DesignEditor({
                       fontStyle={el.fontStyle || 'normal'}
                       align={isDynamic ? 'center' : (el.align || 'left')}
                       width={el.width}
-                      draggable={isEditor && !isDynamic}
+                      draggable={isEditor}
                       onMouseDown={(e) => {
                         e.cancelBubble = true;
                         setSelectedId(el.id);

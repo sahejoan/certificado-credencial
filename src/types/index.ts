@@ -74,4 +74,5 @@ export interface TemplateElement {
   height?: number;
   align?: 'left' | 'center' | 'right';
   fontStyle?: 'normal' | 'bold' | 'italic';
+  isAutoAligned?: boolean;
 }
