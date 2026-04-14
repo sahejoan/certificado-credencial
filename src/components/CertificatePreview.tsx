@@ -99,6 +99,25 @@ export default function CertificatePreview({ event, participant, authorities, on
 
         // Generate QRs for all templates
         const newQrImages: Record<string, HTMLImageElement> = {};
+        
+        // Add fallback QR for front template if missing
+        const hasFrontQr = event.certificateTemplate.elements?.some(el => el.type === 'qr_code');
+        if (!hasFrontQr) {
+          const fallbackQrId = 'fallback_qr_front';
+          const verificationUrl = getVerificationUrl(participant.id);
+          const dataUrl = await QRCode.toDataURL(verificationUrl, {
+            margin: 0,
+            color: { dark: '#000000', light: '#ffffff' }
+          });
+          const img = new window.Image();
+          img.src = dataUrl;
+          await new Promise(resolve => {
+            img.onload = resolve;
+            img.onerror = resolve;
+          });
+          newQrImages[fallbackQrId] = img;
+        }
+
         for (const t of allTemplates) {
           if (!t.elements) continue;
           for (const el of t.elements) {
@@ -362,6 +381,18 @@ export default function CertificatePreview({ event, participant, authorities, on
                 />
               );
             })}
+            {/* Fallback QR if none in template (only for front side) */}
+            {sideLabel.toLowerCase().includes('anverso') && qrImages['fallback_qr_front'] && (
+              <KonvaImage
+                image={qrImages['fallback_qr_front']}
+                x={680}
+                y={440}
+                width={80}
+                height={80}
+                stroke="#ffffff"
+                strokeWidth={4}
+              />
+            )}
           </Layer>
         </Stage>
       </div>

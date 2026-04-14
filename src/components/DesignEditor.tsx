@@ -57,10 +57,27 @@ export default function DesignEditor({
   const isEditor = user?.role === 'admin' || user?.role === 'editor' || user?.role === 'viewer';
 
   useEffect(() => {
-    setElements(template.elements || []);
+    const currentElements = template.elements || [];
+    // If it's a new template or missing QR, and it's a credential/certificate, we might want to ensure one exists
+    // However, we'll respect the user's choice but add a default one if the template is completely empty
+    if (currentElements.length === 0) {
+      const defaultQr: TemplateElement = {
+        id: 'qr_' + Math.random().toString(36).substr(2, 9),
+        type: 'qr_code',
+        content: 'verification_url',
+        x: width - 120,
+        y: height - 120,
+        width: 100,
+        height: 100,
+        fill: '#000000'
+      };
+      setElements([defaultQr]);
+    } else {
+      setElements(currentElements);
+    }
     setBackgroundUrl(template.backgroundUrl);
     setSelectedId(null);
-  }, [template]);
+  }, [template, width, height]);
 
   useEffect(() => {
     if (backgroundUrl) {
@@ -311,17 +328,10 @@ export default function DesignEditor({
             </div>
 
             <div className="mt-4 p-3 bg-indigo-500/5 border border-indigo-500/10 rounded-xl">
-              <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-tight mb-1">Tip: Texto Dinámico</p>
-              <p className="text-[9px] text-zinc-500 leading-relaxed mb-2">
-                Usa llaves para insertar datos en textos largos:
+              <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-tight mb-1">Tip: Verificación QR</p>
+              <p className="text-[9px] text-zinc-500 leading-relaxed">
+                El sistema requiere un código QR para el check-in. Si no lo agregas manualmente, se incluirá uno automáticamente en la esquina inferior derecha.
               </p>
-              <div className="space-y-1">
-                <code className="block text-[8px] text-zinc-400 bg-black/20 p-1 rounded">{'{participant_name}'}</code>
-                <code className="block text-[8px] text-zinc-400 bg-black/20 p-1 rounded">{'{participant_id_number}'}</code>
-                <code className="block text-[8px] text-zinc-400 bg-black/20 p-1 rounded">{'{participant_role}'}</code>
-                <code className="block text-[8px] text-zinc-400 bg-black/20 p-1 rounded">{'{event_name}'}</code>
-                <code className="block text-[8px] text-zinc-400 bg-black/20 p-1 rounded">{'{event_date}'}</code>
-              </div>
             </div>
           </div>
 

@@ -41,6 +41,28 @@ export default function CredentialPreview({ event, participant, authorities, onC
       try {
         // Generate QRs
         const newQrImages: Record<string, HTMLImageElement> = {};
+        const elements = [...(template?.elements || [])];
+        
+        // Check if there is at least one QR code element
+        const hasQr = elements.some(el => el.type === 'qr_code');
+        
+        // If no QR is present in the template, we add a virtual one for the preview
+        if (!hasQr) {
+          const fallbackQrId = 'fallback_qr';
+          const verificationUrl = getVerificationUrl(participant.id);
+          const dataUrl = await QRCode.toDataURL(verificationUrl, {
+            margin: 0,
+            color: { dark: '#000000', light: '#ffffff' }
+          });
+          const img = new window.Image();
+          img.src = dataUrl;
+          await new Promise(resolve => {
+            img.onload = resolve;
+            img.onerror = resolve;
+          });
+          newQrImages[fallbackQrId] = img;
+        }
+
         if (template?.elements) {
           for (const el of template.elements) {
             if (el.type === 'qr_code') {
@@ -288,6 +310,18 @@ export default function CredentialPreview({ event, participant, authorities, onC
                         />
                       );
                     })}
+                    {/* Fallback QR if none in template */}
+                    {qrImages['fallback_qr'] && (
+                      <KonvaImage
+                        image={qrImages['fallback_qr']}
+                        x={280}
+                        y={480}
+                        width={100}
+                        height={100}
+                        stroke="#ffffff"
+                        strokeWidth={4}
+                      />
+                    )}
                   </Layer>
                 </Stage>
               </div>

@@ -156,7 +156,7 @@ export default function Dashboard({ participants, events }: DashboardProps) {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
         <StatCard 
           title="Total Registrados" 
           value={stats.total} 
@@ -169,28 +169,28 @@ export default function Dashboard({ participants, events }: DashboardProps) {
           value={stats.attended} 
           icon={CheckCircle2} 
           color="bg-emerald-500/10 text-emerald-400"
-          trend={`${stats.attendanceRate.toFixed(1)}% de efectividad`}
+          trend={`${stats.attendanceRate.toFixed(1)}%`}
         />
         <StatCard 
           title="Pendientes" 
           value={stats.total - stats.attended} 
           icon={Clock} 
           color="bg-amber-500/10 text-amber-400"
-          trend="Por confirmar"
+          trend="Pendiente"
         />
         <StatCard 
           title="Nuevos Hoy" 
           value={stats.registrationData[stats.registrationData.length - 1].count} 
           icon={UserPlus} 
           color="bg-pink-500/10 text-pink-400"
-          trend="Registros"
+          trend="Hoy"
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
         {/* Option C: Comparison Chart */}
-        <div className="lg:col-span-2 bg-zinc-900/50 border border-white/5 rounded-3xl p-8 backdrop-blur-xl">
-          <div className="flex items-center justify-between mb-8">
+        <div className="lg:col-span-2 bg-zinc-900/50 border border-white/5 rounded-3xl p-4 lg:p-8 backdrop-blur-xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
             <div>
               <h3 className="text-lg font-bold text-white">Inscritos vs. Asistencias</h3>
               <p className="text-sm text-zinc-400">Desglose por comisión y rol</p>
@@ -198,37 +198,38 @@ export default function Dashboard({ participants, events }: DashboardProps) {
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-zinc-700"></div>
-                <span className="text-xs text-zinc-400">Inscritos</span>
+                <span className="text-[10px] text-zinc-400">Inscritos</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-gradient-to-r from-indigo-500 via-rose-500 to-emerald-500"></div>
-                <span className="text-xs text-zinc-400">Asistencias</span>
+                <span className="text-[10px] text-zinc-400">Asistencias</span>
               </div>
             </div>
           </div>
-          <div className="h-[400px] w-full">
+          <div className="h-[300px] lg:h-[400px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={stats.roleComparisonData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+              <BarChart data={stats.roleComparisonData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
                 <XAxis 
                   dataKey="name" 
                   stroke="#71717a" 
-                  fontSize={10} 
+                  fontSize={9} 
                   tickLine={false} 
                   axisLine={false}
                   interval={0}
-                  angle={-15}
+                  angle={-45}
                   textAnchor="end"
+                  height={60}
                 />
                 <YAxis 
                   stroke="#71717a" 
-                  fontSize={12} 
+                  fontSize={10} 
                   tickLine={false} 
                   axisLine={false} 
                 />
                 <Tooltip 
                   cursor={{ fill: '#ffffff05' }}
-                  contentStyle={{ backgroundColor: '#18181b', border: '1px solid #ffffff10', borderRadius: '12px' }}
+                  contentStyle={{ backgroundColor: '#18181b', border: '1px solid #ffffff10', borderRadius: '12px', fontSize: '12px' }}
                   itemStyle={{ color: '#fff' }}
                 />
                 <Bar dataKey="registered" name="Inscritos" fill="#3f3f46" radius={[4, 4, 0, 0]} />
@@ -243,7 +244,7 @@ export default function Dashboard({ participants, events }: DashboardProps) {
         </div>
 
         {/* Recent Activity */}
-        <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-8 backdrop-blur-xl">
+        <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-6 lg:p-8 backdrop-blur-xl">
           <div className="flex items-center justify-between mb-8">
             <div>
               <h3 className="text-lg font-bold text-white">Actividad Reciente</h3>
@@ -251,11 +252,11 @@ export default function Dashboard({ participants, events }: DashboardProps) {
             </div>
             <Activity className="w-6 h-6 text-indigo-400" />
           </div>
-          <div className="space-y-6">
+          <div className="space-y-6 max-h-[400px] overflow-y-auto pr-2 no-scrollbar">
             {stats.recentActivity.length > 0 ? stats.recentActivity.map((p) => (
               <div key={p.id} className="flex items-center gap-4 group">
                 <div className={cn(
-                  "w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold border border-white/5",
+                  "w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold border border-white/5 shrink-0",
                   p.attended ? "bg-emerald-500/10 text-emerald-400" : "bg-zinc-800 text-zinc-400"
                 )}>
                   {p.name[0].toUpperCase()}
@@ -264,11 +265,11 @@ export default function Dashboard({ participants, events }: DashboardProps) {
                   <p className="text-sm font-bold text-white truncate group-hover:text-indigo-400 transition-colors">
                     {p.name}
                   </p>
-                  <p className="text-xs text-zinc-500 truncate">
+                  <p className="text-[10px] text-zinc-500 truncate">
                     {ROLES.find(r => r.id === p.role)?.label}
                   </p>
                 </div>
-                <div className="text-right">
+                <div className="text-right shrink-0">
                   <p className="text-[10px] font-medium text-zinc-500">
                     {p.registrationDate ? format(new Date(p.registrationDate), 'HH:mm') : '--:--'}
                   </p>
@@ -287,25 +288,25 @@ export default function Dashboard({ participants, events }: DashboardProps) {
             onClick={() => window.dispatchEvent(new CustomEvent('changeTab', { detail: 'participants' }))}
             className="w-full mt-8 py-3 rounded-2xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-bold transition-colors flex items-center justify-center gap-2"
           >
-            Ver todos los participantes
+            Ver todos
             <ArrowUpRight className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
         {/* Registration Trend */}
-        <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-8 backdrop-blur-xl">
+        <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-6 lg:p-8 backdrop-blur-xl">
           <div className="flex items-center justify-between mb-8">
             <div>
               <h3 className="text-lg font-bold text-white">Ritmo de Inscripción</h3>
-              <p className="text-sm text-zinc-400">Registros por día (última semana)</p>
+              <p className="text-sm text-zinc-400">Registros por día</p>
             </div>
             <TrendingUp className="w-6 h-6 text-indigo-400" />
           </div>
-          <div className="h-[300px] w-full">
+          <div className="h-[250px] lg:h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={stats.registrationData}>
+              <AreaChart data={stats.registrationData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
@@ -316,18 +317,18 @@ export default function Dashboard({ participants, events }: DashboardProps) {
                 <XAxis 
                   dataKey="date" 
                   stroke="#71717a" 
-                  fontSize={12} 
+                  fontSize={10} 
                   tickLine={false} 
                   axisLine={false} 
                 />
                 <YAxis 
                   stroke="#71717a" 
-                  fontSize={12} 
+                  fontSize={10} 
                   tickLine={false} 
                   axisLine={false} 
                 />
                 <Tooltip 
-                  contentStyle={{ backgroundColor: '#18181b', border: '1px solid #ffffff10', borderRadius: '12px' }}
+                  contentStyle={{ backgroundColor: '#18181b', border: '1px solid #ffffff10', borderRadius: '12px', fontSize: '12px' }}
                   itemStyle={{ color: '#fff' }}
                 />
                 <Area 
@@ -344,17 +345,17 @@ export default function Dashboard({ participants, events }: DashboardProps) {
         </div>
 
         {/* Quick Insights */}
-        <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-8 backdrop-blur-xl flex flex-col justify-center">
-          <div className="space-y-8">
-            <div className="flex items-center gap-6">
-              <div className="w-16 h-16 rounded-3xl bg-indigo-500/20 flex items-center justify-center text-indigo-400">
-                <Sparkles className="w-8 h-8" />
+        <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-6 lg:p-8 backdrop-blur-xl flex flex-col justify-center">
+          <div className="space-y-6 lg:space-y-8">
+            <div className="flex items-center gap-4 lg:gap-6">
+              <div className="w-12 h-12 lg:w-16 lg:h-16 rounded-2xl lg:rounded-3xl bg-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
+                <Sparkles className="w-6 h-6 lg:w-8 lg:h-8" />
               </div>
               <div>
-                <h4 className="text-xl font-bold text-white">Insight del Evento</h4>
-                <p className="text-zinc-400 text-sm mt-1">
+                <h4 className="text-lg lg:text-xl font-bold text-white">Insight del Evento</h4>
+                <p className="text-zinc-400 text-xs lg:text-sm mt-1">
                   {selectedEventId === 'all' 
-                    ? "Analizando el rendimiento global de todos tus eventos activos."
+                    ? "Analizando el rendimiento global de todos tus eventos."
                     : `Analizando datos específicos para: ${events.find(e => e.id === selectedEventId)?.name}`}
                 </p>
               </div>
@@ -363,7 +364,7 @@ export default function Dashboard({ participants, events }: DashboardProps) {
             <div className="grid grid-cols-2 gap-4">
               <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
                 <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Tasa de Éxito</p>
-                <p className="text-2xl font-bold text-white mt-1">{stats.attendanceRate.toFixed(1)}%</p>
+                <p className="text-xl lg:text-2xl font-bold text-white mt-1">{stats.attendanceRate.toFixed(1)}%</p>
                 <div className="w-full bg-zinc-800 h-1.5 rounded-full mt-3 overflow-hidden">
                   <div 
                     className="bg-indigo-500 h-full transition-all duration-1000" 
@@ -373,15 +374,15 @@ export default function Dashboard({ participants, events }: DashboardProps) {
               </div>
               <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
                 <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Compromiso</p>
-                <p className="text-2xl font-bold text-white mt-1">
+                <p className="text-xl lg:text-2xl font-bold text-white mt-1">
                   {stats.total > 0 ? (stats.attended / stats.total > 0.7 ? 'Alto' : 'Medio') : 'N/A'}
                 </p>
-                <p className="text-[10px] text-zinc-500 mt-3">Basado en asistencia real</p>
+                <p className="text-[10px] text-zinc-500 mt-3">Basado en asistencia</p>
               </div>
             </div>
 
-            <p className="text-sm text-zinc-500 italic">
-              "La comisión con mayor participación actualmente es {
+            <p className="text-xs lg:text-sm text-zinc-500 italic">
+              "La comisión con mayor participación es {
                 [...stats.roleComparisonData].sort((a, b) => b.attended - a.attended)[0]?.name || 'ninguna'
               }."
             </p>
@@ -389,17 +390,17 @@ export default function Dashboard({ participants, events }: DashboardProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-8">
+      <div className="grid grid-cols-1 gap-6 lg:gap-8">
         {/* Attendance by Event */}
-        <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-8 backdrop-blur-xl">
+        <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-6 lg:p-8 backdrop-blur-xl">
           <div className="flex items-center justify-between mb-8">
             <div>
               <h3 className="text-lg font-bold text-white">Rendimiento por Evento</h3>
-              <p className="text-sm text-zinc-400">Comparativa de asistencia entre tus eventos principales</p>
+              <p className="text-sm text-zinc-400">Comparativa de asistencia</p>
             </div>
             <BarChartIcon className="w-6 h-6 text-indigo-400" />
           </div>
-          <div className="h-[350px] w-full">
+          <div className="h-[300px] lg:h-[350px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart 
                 data={events.map(event => {
@@ -407,31 +408,32 @@ export default function Dashboard({ participants, events }: DashboardProps) {
                   const total = eventParticipants.length;
                   const attended = eventParticipants.filter(p => p.attended).length;
                   return {
-                    name: event.name.length > 20 ? event.name.substring(0, 20) + '...' : event.name,
+                    name: event.name.length > 15 ? event.name.substring(0, 15) + '...' : event.name,
                     inscritos: total,
                     asistencias: attended
                   };
                 }).sort((a, b) => b.inscritos - a.inscritos).slice(0, 6)}
+                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
                 <XAxis 
                   dataKey="name" 
                   stroke="#71717a" 
-                  fontSize={12} 
+                  fontSize={10} 
                   tickLine={false} 
                   axisLine={false} 
                 />
                 <YAxis 
                   stroke="#71717a" 
-                  fontSize={12} 
+                  fontSize={10} 
                   tickLine={false} 
                   axisLine={false} 
                 />
                 <Tooltip 
-                  contentStyle={{ backgroundColor: '#18181b', border: '1px solid #ffffff10', borderRadius: '12px' }}
+                  contentStyle={{ backgroundColor: '#18181b', border: '1px solid #ffffff10', borderRadius: '12px', fontSize: '12px' }}
                   itemStyle={{ color: '#fff' }}
                 />
-                <Legend />
+                <Legend iconSize={10} wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }} />
                 <Bar dataKey="inscritos" name="Inscritos" fill="#3f3f46" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="asistencias" name="Asistencias" fill="#10b981" radius={[4, 4, 0, 0]} />
               </BarChart>

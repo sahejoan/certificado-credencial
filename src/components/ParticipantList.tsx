@@ -280,7 +280,7 @@ export default function ParticipantList({
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto hidden md:block">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-white/5 text-[10px] uppercase tracking-widest font-bold text-zinc-500">
@@ -444,6 +444,84 @@ export default function ParticipantList({
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Card View */}
+        <div className="md:hidden divide-y divide-white/5">
+          {paginatedParticipants.map((participant) => (
+            <div key={participant.id} className="p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 font-bold border border-white/5">
+                    {participant.name.charAt(0)}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-white text-sm">{participant.name}</p>
+                    <p className="text-[10px] text-zinc-500">{participant.email}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => onToggleAttendance(participant.id)}
+                  disabled={!isEditor}
+                >
+                  {participant.attended ? (
+                    <CheckCircle2 className="w-6 h-6 text-emerald-500" />
+                  ) : (
+                    <XCircle className="w-6 h-6 text-zinc-700" />
+                  )}
+                </button>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={cn(
+                  "px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border",
+                  ROLES.find(r => 
+                    r.id.toLowerCase() === participant.role?.toLowerCase() || 
+                    r.label.toLowerCase() === participant.role?.toLowerCase()
+                  )?.color || 'bg-zinc-700 text-zinc-200 border-zinc-500'
+                )}>
+                  {ROLES.find(r => 
+                    r.id.toLowerCase() === participant.role?.toLowerCase() || 
+                    r.label.toLowerCase() === participant.role?.toLowerCase()
+                  )?.label || participant.role}
+                </span>
+                <span className="text-[10px] text-zinc-500">
+                  {formatDate(participant.registrationDate)}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between pt-2">
+                <div className="flex gap-1">
+                  {participant.credentialSentAt && <Mail className="w-3.5 h-3.5 text-emerald-400" />}
+                  {participant.certificateSentAt && <Award className="w-3.5 h-3.5 text-indigo-400" />}
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => onGenerateCertificate(participant)}
+                    disabled={!participant.attended || !isEventStarted}
+                    className="p-2 text-indigo-400 disabled:opacity-30"
+                  >
+                    <Award className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => onGenerateCredential(participant)}
+                    disabled={!participant.attended && !isEditor}
+                    className="p-2 text-zinc-400 disabled:opacity-30"
+                  >
+                    <FileText className="w-5 h-5" />
+                  </button>
+                  {isEditor && (
+                    <button
+                      onClick={() => onEditParticipant(participant)}
+                      className="p-2 text-indigo-400"
+                    >
+                      <Edit2 className="w-5 h-5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
 
         {filteredParticipants.length === 0 ? (

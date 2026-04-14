@@ -32,15 +32,15 @@ export default function EventList({
 
   return (
     <div className="space-y-8">
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-white tracking-tight leading-tight">Mis Eventos</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight leading-tight">Mis Eventos</h2>
           <p className="text-zinc-400 mt-1">Gestiona tus eventos y sus certificados.</p>
         </div>
         {isEditor && (
           <button
             onClick={onAddEvent}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl font-semibold flex items-center gap-2 transition-all duration-200 shadow-lg shadow-indigo-900/20 mt-1"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl font-semibold flex items-center justify-center gap-2 transition-all duration-200 shadow-lg shadow-indigo-900/20 mt-1"
           >
             <Plus className="w-5 h-5" />
             Nuevo Evento
