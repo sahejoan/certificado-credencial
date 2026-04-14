@@ -21,6 +21,7 @@ interface ParticipantListProps {
   onBulkSendCertificates: (participants: Participant[]) => void;
   onBulkSendCredentials: (participants: Participant[]) => void;
   onSendEmail: (participant: Participant) => void;
+  onSendCredentialEmail: (participant: Participant) => void;
   user: User | null;
 }
 
@@ -43,6 +44,7 @@ export default function ParticipantList({
   onBulkSendCertificates,
   onBulkSendCredentials,
   onSendEmail,
+  onSendCredentialEmail,
   user
 }: ParticipantListProps) {
   const [search, setSearch] = useState('');
@@ -286,6 +288,7 @@ export default function ParticipantList({
                 <th className="px-6 py-4">Rol</th>
                 <th className="px-6 py-4">Registro</th>
                 <th className="px-6 py-4 text-center">Asistencia</th>
+                <th className="px-6 py-4 text-center">Historial</th>
                 <th className="px-6 py-4 text-right">Acciones</th>
               </tr>
             </thead>
@@ -339,6 +342,30 @@ export default function ParticipantList({
                       )}
                     </button>
                   </td>
+                  <td className="px-6 py-4">
+                    <div className="flex flex-col gap-1 items-center">
+                      {participant.credentialSentAt ? (
+                        <div className="flex items-center gap-1 text-[9px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20" title={`Credencial enviada: ${new Date(participant.credentialSentAt).toLocaleString()}`}>
+                          <Mail className="w-3 h-3" />
+                          <span>Credencial</span>
+                        </div>
+                      ) : (
+                        <div className="text-[9px] text-zinc-600 px-1.5 py-0.5 rounded border border-zinc-800/50">
+                          Sin credencial
+                        </div>
+                      )}
+                      {participant.certificateSentAt ? (
+                        <div className="flex items-center gap-1 text-[9px] text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20" title={`Certificado enviado: ${new Date(participant.certificateSentAt).toLocaleString()}`}>
+                          <Award className="w-3 h-3" />
+                          <span>Certificado</span>
+                        </div>
+                      ) : (
+                        <div className="text-[9px] text-zinc-600 px-1.5 py-0.5 rounded border border-zinc-800/50">
+                          Sin certificado
+                        </div>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <button
@@ -364,6 +391,19 @@ export default function ParticipantList({
                             : "text-zinc-700 cursor-not-allowed"
                         )}
                         title={!isEventStarted ? `Disponible el ${formatDate(selectedEvent?.date || '')}` : "Enviar Certificado por Email"}
+                      >
+                        <Mail className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => onSendCredentialEmail(participant)}
+                        disabled={!participant.attended && !isEditor}
+                        className={cn(
+                          "p-2 rounded-lg transition-all",
+                          (participant.attended || isEditor)
+                            ? "text-emerald-400 hover:bg-emerald-500/10" 
+                            : "text-zinc-700 cursor-not-allowed"
+                        )}
+                        title="Enviar Credencial por Email"
                       >
                         <Mail className="w-5 h-5" />
                       </button>

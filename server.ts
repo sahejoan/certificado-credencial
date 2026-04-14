@@ -113,7 +113,7 @@ async function startServer() {
       });
 
       const mailOptions = {
-        from: process.env.SMTP_FROM || `"CertiEvent - Sistema de Certificados" <${process.env.SMTP_USER}>`,
+        from: process.env.SMTP_FROM || `"AmadeusEvent - Sistema de Certificados" <${process.env.SMTP_USER}>`,
         to: email,
         subject: `Certificado de Participación - ${eventName}`,
         text: `Estimado(a) ${name},\n\nEs un honor para nosotros hacerle entrega de su certificado de participación en el evento "${eventName}".\n\n"Investigar para comprender, escribir para transcender"\n\nAtentamente,\nComisión de Tecnología`,
@@ -133,7 +133,7 @@ async function startServer() {
               <p style="font-weight: bold; color: #4f46e5; margin: 0;">Comisión de Tecnología 2026</p>
             </div>
             <p style="color: #94a3b8; font-size: 11px; text-align: center; margin-top: 30px;">
-              Este es un mensaje automático generado por el Sistema CertiEvent. Por favor, no responda a este correo.
+              Este es un mensaje automático generado por el Sistema AmadeusEvent. Por favor, no responda a este correo.
             </p>
           </div>
         `,
@@ -183,7 +183,7 @@ async function startServer() {
       });
 
       const mailOptions = {
-        from: process.env.SMTP_FROM || `"CertiEvent - Sistema de Credenciales" <${process.env.SMTP_USER}>`,
+        from: process.env.SMTP_FROM || `"AmadeusEvent - Sistema de Credenciales" <${process.env.SMTP_USER}>`,
         to: email,
         subject: `Tu Credencial de Acceso - ${eventName}`,
         text: `Estimado(a) ${name},\n\nAdjunto encontrarás tu credencial de acceso para el evento "${eventName}".\n\nPor favor, imprímela o llévala en tu dispositivo móvil para agilizar tu ingreso.\n\nAtentamente,\nComisión de Tecnología`,
@@ -202,7 +202,7 @@ async function startServer() {
               <p style="font-weight: bold; color: #4f46e5; margin: 0;">Comisión de Tecnología 2026</p>
             </div>
             <p style="color: #94a3b8; font-size: 11px; text-align: center; margin-top: 30px;">
-              Este es un mensaje automático generado por el Sistema CertiEvent. Por favor, no responda a este correo.
+              Este es un mensaje automático generado por el Sistema AmadeusEvent. Por favor, no responda a este correo.
             </p>
           </div>
         `,
@@ -263,7 +263,7 @@ async function startServer() {
       });
 
       const mailOptions = {
-        from: process.env.SMTP_FROM || `"CertiEvent - Sistema de Registro" <${process.env.SMTP_USER}>`,
+        from: process.env.SMTP_FROM || `"AmadeusEvent - Sistema de Registro" <${process.env.SMTP_USER}>`,
         to: email,
         subject: `Confirmación de Registro - ${eventName}`,
         text: `Estimado(a) ${name},\n\nLe informamos que su registro para el evento "${eventName}" ha sido procesado exitosamente.\n\n"Investigar para comprender, escribir para transcender"\n\nAtentamente,\nComisión de Tecnología`,
@@ -283,7 +283,7 @@ async function startServer() {
               <p style="font-weight: bold; color: #4f46e5; margin: 0;">Comisión de Tecnología 2026</p>
             </div>
             <p style="color: #94a3b8; font-size: 11px; text-align: center; margin-top: 30px;">
-              Este es un mensaje automático generado por el Sistema CertiEvent. Por favor, no responda a este correo.
+              Este es un mensaje automático generado por el Sistema AmadeusEvent. Por favor, no responda a este correo.
             </p>
           </div>
         `

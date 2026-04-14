@@ -15,20 +15,47 @@ interface ReportsProps {
 export default function Reports({ participants, events }: ReportsProps) {
   const [selectedEventId, setSelectedEventId] = useState<string | 'all'>('all');
   const [selectedRole, setSelectedRole] = useState<Role | 'all'>('all');
+  const [attendanceFilter, setAttendanceFilter] = useState<'all' | 'attended' | 'not_attended'>('all');
   const [reportType, setReportType] = useState<'general' | 'grouped'>('general');
   const [isGenerating, setIsGenerating] = useState(false);
 
   const filteredParticipants = useMemo(() => {
-    return participants.filter(p => {
+    const filtered = participants.filter(p => {
+      // Strict validation: Participant MUST have Name, ID Number, AND Email
+      // to be included in any report. This prevents "ghost" or incomplete records.
+      const name = (p.name || '').trim();
+      const id = (p.idNumber || '').trim();
+      const email = (p.email || '').trim();
+
+      // If any of the core fields are missing or just whitespace, exclude them
+      if (name.length < 2 || id.length < 2 || email.length < 5) {
+        return false;
+      }
+
       const matchesEvent = selectedEventId === 'all' || p.eventId === selectedEventId;
       const matchesRole = selectedRole === 'all' || 
                          p.role === selectedRole || 
                          p.role?.toLowerCase() === selectedRole.toLowerCase() ||
                          ROLES.find(r => r.id === selectedRole)?.label.toLowerCase() === p.role?.toLowerCase();
       
-      return matchesEvent && matchesRole;
+      const matchesAttendance = attendanceFilter === 'all' || 
+                               (attendanceFilter === 'attended' && p.attended) ||
+                               (attendanceFilter === 'not_attended' && !p.attended);
+      
+      return matchesEvent && matchesRole && matchesAttendance;
     });
-  }, [participants, selectedEventId, selectedRole]);
+
+    // De-duplicate by normalized idNumber + eventId to prevent repeating names in reports
+    const seen = new Set();
+    return filtered.filter(p => {
+      // Normalize ID: remove dots, dashes, spaces and convert to lowercase
+      const normalizedId = (p.idNumber || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+      const key = `${normalizedId}-${p.eventId}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [participants, selectedEventId, selectedRole, attendanceFilter]);
 
   const stats = useMemo(() => {
     const total = filteredParticipants.length;
@@ -62,29 +89,35 @@ export default function Reports({ participants, events }: ReportsProps) {
       doc.setTextColor(100);
       doc.text(`Evento: ${eventName}`, 14, 30);
       doc.text(`Tipo de Reporte: ${reportType === 'general' ? 'Listado General' : 'Agrupado por Rol'}`, 14, 35);
-      doc.text(`Fecha de generación: ${new Date().toLocaleString()}`, 14, 40);
-      doc.text(`Total participantes: ${filteredParticipants.length}`, 14, 45);
+      doc.text(`Filtro Asistencia: ${attendanceFilter === 'all' ? 'Todos' : attendanceFilter === 'attended' ? 'Confirmados' : 'No Confirmados'}`, 14, 40);
+      doc.text(`Fecha de generación: ${new Date().toLocaleString()}`, 14, 45);
+      doc.text(`Total participantes: ${filteredParticipants.length}`, 14, 50);
 
       if (reportType === 'general') {
-        const tableData = filteredParticipants.map((p, index) => [
+        const sortedParticipants = [...filteredParticipants].sort((a, b) => 
+          (a.name || '').trim().localeCompare((b.name || '').trim())
+        );
+
+        const tableData = sortedParticipants.map((p, index) => [
           index + 1,
-          p.name,
-          p.idNumber,
-          p.email,
+          (p.name || '').trim(),
+          (p.idNumber || '').trim(),
+          (p.email || '').trim(),
           ROLES.find(r => 
             r.id.toLowerCase() === p.role?.toLowerCase() || 
             r.label.toLowerCase() === p.role?.toLowerCase()
           )?.label || p.role,
-          '' // Checkbox column
+          p.attended ? 'SÍ' : 'NO'
         ]);
 
         autoTable(doc, {
-          startY: 55,
+          startY: 60,
           head: [['#', 'Nombre', 'Cédula', 'Email', 'Rol', 'Asistencia']],
           body: tableData,
           theme: 'striped',
           headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
           alternateRowStyles: { fillColor: [245, 247, 250] },
+          rowPageBreak: 'avoid', // Prevent rows from splitting across pages
           columnStyles: {
             0: { cellWidth: 10 },
             2: { cellWidth: 30 }, // Fixed width for Cédula
@@ -93,7 +126,7 @@ export default function Reports({ participants, events }: ReportsProps) {
           },
           styles: { fontSize: 9 },
           didDrawCell: (data) => {
-            if (data.section === 'body' && data.column.index === 5) {
+            if (data.section === 'body' && data.column.index === 5 && attendanceFilter === 'all') {
               const size = 5;
               const x = data.cell.x + (data.cell.width / 2) - (size / 2);
               const y = data.cell.y + (data.cell.height / 2) - (size / 2);
@@ -106,10 +139,21 @@ export default function Reports({ participants, events }: ReportsProps) {
       } else {
         let currentY = 55;
         
-        // Sort roles to maintain consistency and put 'asistente' at the end
-        const participantRoles = Array.from(new Set(filteredParticipants.map(p => p.role))).sort((a, b) => {
-          const roleA = (a || '').toLowerCase();
-          const roleB = (b || '').toLowerCase();
+        // Group participants by normalized role to avoid duplicates (e.g. "comision_cultura" vs "Comisión de Cultura")
+        const groupedByRole = filteredParticipants.reduce((acc, p) => {
+          const roleInfo = ROLES.find(r => 
+            r.id.toLowerCase() === p.role?.toLowerCase() || 
+            r.label.toLowerCase() === p.role?.toLowerCase()
+          );
+          const roleId = roleInfo ? roleInfo.id : (p.role || 'Otros');
+          if (!acc[roleId]) acc[roleId] = [];
+          acc[roleId].push(p);
+          return acc;
+        }, {} as Record<string, Participant[]>);
+
+        const participantRoles = Object.keys(groupedByRole).sort((a, b) => {
+          const roleA = a.toLowerCase();
+          const roleB = b.toLowerCase();
           
           if (roleA === 'asistente') return 1;
           if (roleB === 'asistente') return -1;
@@ -117,9 +161,8 @@ export default function Reports({ participants, events }: ReportsProps) {
         });
         
         participantRoles.forEach((roleId, roleIndex) => {
-          const roleParticipants = filteredParticipants
-            .filter(p => p.role === roleId)
-            .sort((a, b) => a.name.localeCompare(b.name));
+          const roleParticipants = groupedByRole[roleId]
+            .sort((a, b) => (a.name || '').trim().localeCompare((b.name || '').trim()));
             
           const roleInfo = ROLES.find(r => 
             r.id.toLowerCase() === roleId?.toLowerCase() || 
@@ -158,10 +201,10 @@ export default function Reports({ participants, events }: ReportsProps) {
 
             const tableData = roleParticipants.map((p, index) => [
               index + 1,
-              p.name,
-              p.idNumber,
-              p.email,
-              '' // Checkbox column
+              (p.name || '').trim(),
+              (p.idNumber || '').trim(),
+              (p.email || '').trim(),
+              p.attended ? 'SÍ' : 'NO'
             ]);
 
             autoTable(doc, {
@@ -169,6 +212,7 @@ export default function Reports({ participants, events }: ReportsProps) {
               head: [['#', 'Nombre', 'Cédula', 'Email', 'Asistencia']],
               body: tableData,
               theme: 'grid',
+              rowPageBreak: 'avoid', // Prevent rows from splitting across pages
               headStyles: { 
                 fillColor: headerColor, 
                 textColor: 255,
@@ -181,7 +225,7 @@ export default function Reports({ participants, events }: ReportsProps) {
                 4: { cellWidth: 25, halign: 'center' }
               },
               didDrawCell: (data) => {
-                if (data.section === 'body' && data.column.index === 4) {
+                if (data.section === 'body' && data.column.index === 4 && attendanceFilter === 'all') {
                   const size = 5;
                   const x = data.cell.x + (data.cell.width / 2) - (size / 2);
                   const y = data.cell.y + (data.cell.height / 2) - (size / 2);
@@ -199,6 +243,41 @@ export default function Reports({ participants, events }: ReportsProps) {
         });
       }
 
+      // Add Final Summary / Total
+      const finalY = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY + 15 : 60;
+      
+      // Check if we need a new page for the summary
+      if (finalY > 260) {
+        doc.addPage();
+        doc.setFontSize(14);
+        doc.setTextColor(40);
+        doc.setFont('helvetica', 'bold');
+        doc.text('RESUMEN FINAL DEL REPORTE', 14, 30);
+        doc.setDrawColor(79, 70, 229);
+        doc.setLineWidth(0.5);
+        doc.line(14, 32, 200, 32);
+        
+        doc.setFontSize(11);
+        doc.setTextColor(60);
+        doc.text(`Total de registros en este reporte: ${filteredParticipants.length}`, 14, 45);
+        doc.text(`Filtro aplicado: ${attendanceFilter === 'all' ? 'Todos los participantes' : attendanceFilter === 'attended' ? 'Solo confirmados' : 'Solo no confirmados'}`, 14, 52);
+      } else {
+        doc.setDrawColor(200);
+        doc.setLineWidth(0.1);
+        doc.line(14, finalY, 200, finalY);
+        
+        doc.setFontSize(12);
+        doc.setTextColor(40);
+        doc.setFont('helvetica', 'bold');
+        doc.text('RESUMEN TOTAL', 14, finalY + 10);
+        
+        doc.setFontSize(10);
+        doc.setTextColor(80);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Total general de participantes listados: ${filteredParticipants.length}`, 14, finalY + 18);
+        doc.text(`Estado: ${attendanceFilter === 'all' ? 'General' : attendanceFilter === 'attended' ? 'Confirmados' : 'Pendientes'}`, 14, finalY + 24);
+      }
+
       // Add Page Numbers
       const pageCount = (doc as any).internal.getNumberOfPages();
       for (let i = 1; i <= pageCount; i++) {
@@ -206,7 +285,7 @@ export default function Reports({ participants, events }: ReportsProps) {
         doc.setFontSize(8);
         doc.setTextColor(150);
         doc.text(`Página ${i} de ${pageCount}`, 105, 285, { align: 'center' });
-        doc.text('CertiEvent - Sistema de Gestión de Eventos', 14, 285);
+        doc.text('AmadeusEvent - Sistema de Gestión de Eventos', 14, 285);
       }
 
       doc.save(`Reporte_${reportType}_${new Date().getTime()}.pdf`);
@@ -300,7 +379,7 @@ export default function Reports({ participants, events }: ReportsProps) {
             <h4 className="text-xs font-black text-white uppercase tracking-widest">Filtros</h4>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 w-full">
             <div>
               <select
                 value={selectedEventId}
@@ -329,6 +408,18 @@ export default function Reports({ participants, events }: ReportsProps) {
 
             <div>
               <select
+                value={attendanceFilter}
+                onChange={(e) => setAttendanceFilter(e.target.value as any)}
+                className="w-full bg-zinc-800 border border-white/5 rounded-xl px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+              >
+                <option value="all">Toda la Asistencia</option>
+                <option value="attended">Confirmados</option>
+                <option value="not_attended">No Confirmados</option>
+              </select>
+            </div>
+
+            <div>
+              <select
                 value={reportType}
                 onChange={(e) => setReportType(e.target.value as 'general' | 'grouped')}
                 className="w-full bg-zinc-800 border border-white/5 rounded-xl px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-bold"
@@ -342,6 +433,7 @@ export default function Reports({ participants, events }: ReportsProps) {
               onClick={() => {
                 setSelectedEventId('all');
                 setSelectedRole('all');
+                setAttendanceFilter('all');
                 setReportType('general');
               }}
               className="px-4 py-3 bg-zinc-800 hover:bg-zinc-700 border border-white/5 rounded-xl text-[10px] font-black text-zinc-400 hover:text-white uppercase tracking-widest transition-all"

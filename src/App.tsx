@@ -7,6 +7,7 @@ import DesignEditor from './components/DesignEditor';
 import AuthorityList from './components/AuthorityList';
 import UserManagement from './components/UserManagement';
 import Reports from './components/Reports';
+import Dashboard from './components/Dashboard';
 import Modal from './components/Modal';
 import CertificatePreview from './components/CertificatePreview';
 import CredentialPreview from './components/CredentialPreview';
@@ -70,7 +71,6 @@ import {
   onAuthStateChanged, 
   signOut,
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
   getAuth,
   User as FirebaseUser
 } from 'firebase/auth';
@@ -167,15 +167,26 @@ const DEFAULT_CERTIFICATE_TEMPLATE: Template = {
 };
 
 const DEFAULT_CERTIFICATE_BACK_TEMPLATE: Template = {
-  backgroundUrl: '', // User should upload the image provided
+  backgroundUrl: '', 
   elements: [
-    { id: 'back_header', type: 'text', content: 'CONTENIDO', x: 0, y: 50, fontSize: 20, fill: '#ffffff', align: 'center', width: 800, fontFamily: 'Inter', fontStyle: 'bold' } as any,
-    { id: 'back_unit', type: 'text', content: 'Unidad I: ¿Cuáles son los principios esenciales del pensamiento lógico?', x: 100, y: 110, fontSize: 16, fill: '#475569', align: 'center', width: 600, fontFamily: 'Inter' } as any,
-    { id: 'back_date', type: 'text', content: 'Fecha: {event_date}', x: 0, y: 140, fontSize: 14, fill: '#475569', align: 'center', width: 800, fontFamily: 'Inter', fontStyle: 'bold' } as any,
-    { id: 'back_qr', type: 'qr_code', content: 'verification_url', x: 680, y: 380, width: 80, height: 80, fill: '#1e293b' } as any,
-    { id: 'back_dept', type: 'text', content: 'Gerencia de Formación\nTecnológica', x: 0, y: 450, fontSize: 16, fill: '#1e293b', align: 'center', width: 800, fontFamily: 'Inter', fontStyle: 'bold' } as any,
-    { id: 'back_footer_left', type: 'text', content: 'Dictado en el:\nCentro Nacional de\nTecnologías de Información', x: 30, y: 510, fontSize: 12, fill: '#ffffff', align: 'left', width: 300, fontFamily: 'Inter' } as any,
-    { id: 'back_footer_right', type: 'text', content: 'Modalidad: Autogestionado\nDuración: 24 horas', x: 470, y: 510, fontSize: 12, fill: '#ffffff', align: 'right', width: 300, fontFamily: 'Inter' } as any,
+    { id: 'back_header', type: 'text', content: 'CONTENIDO PROGRAMÁTICO', x: 0, y: 40, fontSize: 22, fill: '#1e1b4b', align: 'center', width: 800, fontFamily: 'Inter', fontStyle: 'bold' } as any,
+    { id: 'line_1', type: 'text', content: '1. La transdisciplinariedad como clave heurística:', x: 50, y: 100, fontSize: 14, fill: '#1e293b', align: 'left', width: 300, fontFamily: 'Inter', fontStyle: 'bold' } as any,
+    { id: 'desc_1', type: 'text', content: 'Redimensionando las condiciones sociolaborales y la calidad de vida en la praxis universitaria.', x: 360, y: 100, fontSize: 13, fill: '#475569', align: 'left', width: 390, fontFamily: 'Inter' } as any,
+    
+    { id: 'line_2', type: 'text', content: '2. Pedagogía de la erosión:', x: 50, y: 160, fontSize: 14, fill: '#1e293b', align: 'left', width: 300, fontFamily: 'Inter', fontStyle: 'bold' } as any,
+    { id: 'desc_2', type: 'text', content: 'Valores ocultos y el desdibujo del contrato social en la praxis educativa venezolana.', x: 360, y: 160, fontSize: 13, fill: '#475569', align: 'left', width: 390, fontFamily: 'Inter' } as any,
+    
+    { id: 'line_3', type: 'text', content: '3. Las líneas de investigación:', x: 50, y: 220, fontSize: 14, fill: '#1e293b', align: 'left', width: 300, fontFamily: 'Inter', fontStyle: 'bold' } as any,
+    { id: 'desc_3', type: 'text', content: 'En la construcción de la investigación doctoral.', x: 360, y: 220, fontSize: 13, fill: '#475569', align: 'left', width: 390, fontFamily: 'Inter' } as any,
+    
+    { id: 'line_4', type: 'text', content: '4. La arquitectura del sentido:', x: 50, y: 280, fontSize: 14, fill: '#1e293b', align: 'left', width: 300, fontFamily: 'Inter', fontStyle: 'bold' } as any,
+    { id: 'desc_4', type: 'text', content: 'Episteme y praxis de la arquitectura doctoral.', x: 360, y: 280, fontSize: 13, fill: '#475569', align: 'left', width: 390, fontFamily: 'Inter' } as any,
+    
+    { id: 'line_5', type: 'text', content: '5. Dimensión ética del saber:', x: 50, y: 340, fontSize: 14, fill: '#1e293b', align: 'left', width: 300, fontFamily: 'Inter', fontStyle: 'bold' } as any,
+    { id: 'desc_5', type: 'text', content: 'Perseverancia y compromiso con la escritura.', x: 360, y: 340, fontSize: 13, fill: '#475569', align: 'left', width: 390, fontFamily: 'Inter' } as any,
+    
+    { id: 'back_qr', type: 'qr_code', content: 'verification_url', x: 360, y: 420, width: 80, height: 80, fill: '#1e293b' } as any,
+    { id: 'back_footer', type: 'text', content: 'Escanea para verificar la autenticidad de este certificado', x: 0, y: 510, fontSize: 10, fill: '#94a3b8', align: 'center', width: 800, fontFamily: 'Inter' } as any,
   ]
 };
 
@@ -234,14 +245,13 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'events' | 'participants' | 'design' | 'authorities' | 'users' | 'reports'>('events');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'events' | 'participants' | 'design' | 'authorities' | 'users' | 'reports'>('dashboard');
   const [user, setUser] = useState<User | null>(null);
   const isEditor = user?.role === 'admin' || user?.role === 'editor';
   const isAdmin = user?.role === 'admin';
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isRegistering, setIsRegistering] = useState(false);
   const [isPublicRegistration, setIsPublicRegistration] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
   const [showCredentialPreview, setShowCredentialPreview] = useState(false);
@@ -413,13 +423,8 @@ export default function App() {
     
     setIsLoading(true);
     try {
-      if (isRegistering) {
-        await createUserWithEmailAndPassword(auth, email, password);
-        toast.success('Cuenta creada con éxito');
-      } else {
-        await signInWithEmailAndPassword(auth, email, password);
-        toast.success('Sesión iniciada');
-      }
+      await signInWithEmailAndPassword(auth, email, password);
+      toast.success('Sesión iniciada');
     } catch (error: any) {
       console.error('Auth error:', error);
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
@@ -489,7 +494,7 @@ export default function App() {
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-zinc-400 font-medium">Cargando CertiEvent...</p>
+          <p className="text-zinc-400 font-medium">Cargando AmadeusEvent...</p>
         </div>
       </div>
     );
@@ -732,6 +737,24 @@ export default function App() {
                 }
                 setIsLoading(true);
                 try {
+                  const idNumber = formData.get('idNumber') as string;
+                  const eventId = formData.get('eventId') as string;
+
+                  // Normalize ID for comparison
+                  const normalizedNewId = idNumber.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+
+                  // Check for existing registration in this event
+                  const existing = participants.find(p => 
+                    p.eventId === eventId && 
+                    (p.idNumber || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '') === normalizedNewId
+                  );
+
+                  if (existing) {
+                    toast.error('Ya existe un registro con este número de cédula para este evento.');
+                    setIsLoading(false);
+                    return;
+                  }
+
                   const participantId = Math.random().toString(36).substr(2, 9);
                   const event = events.find(ev => ev.id === eventId);
                   if (!event) throw new Error('Evento no encontrado');
@@ -943,7 +966,7 @@ export default function App() {
               <div className="w-16 h-16 bg-indigo-600 rounded-[24px] flex items-center justify-center text-white shadow-[0_15px_30px_rgba(79,70,229,0.4)] transform -rotate-12 hover:rotate-0 transition-transform duration-500">
                 <Award className="w-10 h-10" />
               </div>
-              <span className="text-3xl font-black text-white tracking-tighter uppercase italic font-display">CertiEvent</span>
+              <span className="text-3xl font-black text-white tracking-tighter uppercase italic font-display">AmadeusEvent</span>
             </motion.div>
 
             <motion.h1 
@@ -1060,12 +1083,11 @@ export default function App() {
               </div>
 
               {/* Google Login */}
-              {!isRegistering && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="space-y-4"
-                >
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-4"
+              >
                   <div className="flex items-center gap-4">
                     <div className="h-px flex-1 bg-white/5"></div>
                     <span className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.3em]">O continuar con</span>
@@ -1100,7 +1122,6 @@ export default function App() {
                     <span>Google</span>
                   </motion.button>
                 </motion.div>
-              )}
 
               <motion.button
                 whileHover={{ scale: 1.02, y: -4 }}
@@ -1113,23 +1134,11 @@ export default function App() {
                   <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                 ) : (
                   <>
-                    {isRegistering ? 'CREAR CUENTA' : 'ENTRAR'}
+                    ENTRAR
                     <ArrowRight className="w-6 h-6 group-hover:translate-x-2 transition-transform duration-300" />
                   </>
                 )}
               </motion.button>
-
-              <div className="flex items-center justify-center gap-4">
-                <div className="h-px flex-1 bg-white/5"></div>
-                <button 
-                  type="button"
-                  onClick={() => setIsRegistering(!isRegistering)}
-                  className="text-sm font-bold text-zinc-500 hover:text-indigo-400 transition-colors duration-300 px-4"
-                >
-                  {isRegistering ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Regístrate'}
-                </button>
-                <div className="h-px flex-1 bg-white/5"></div>
-              </div>
             </form>
 
             <div className="mt-16 pt-10 border-t border-white/5 flex flex-col items-center gap-6">
@@ -1140,7 +1149,7 @@ export default function App() {
               </div>
               <div className="text-center">
                 <p className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.4em] mb-2">
-                  © {new Date().getFullYear()} CertiEvent
+                  © {new Date().getFullYear()} AmadeusEvent
                 </p>
                 <p className="text-[11px] font-bold text-indigo-400/60 uppercase tracking-[0.2em]">
                   Desarrollado por: Comité de Informática
@@ -1219,6 +1228,22 @@ export default function App() {
         });
         toast.success('Participante actualizado');
       } else {
+        const idNumber = formData.get('idNumber') as string;
+        
+        // Normalize ID for comparison
+        const normalizedNewId = idNumber.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+
+        // Check for existing registration in this event
+        const existing = participants.find(p => 
+          p.eventId === eventId && 
+          (p.idNumber || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '') === normalizedNewId
+        );
+
+        if (existing) {
+          toast.error('Ya existe un registro con este número de cédula para este evento.');
+          return;
+        }
+
         const newParticipant: Participant = {
           id: participantId,
           eventId,
@@ -1427,6 +1452,10 @@ export default function App() {
       <Layout activeTab={activeTab} setActiveTab={setActiveTab} user={user} onLogout={handleLogout}>
         <Toaster position="top-right" />
       
+      {activeTab === 'dashboard' && (
+        <Dashboard participants={participants} events={events} />
+      )}
+      
       {activeTab === 'events' && (
         <div className="space-y-6">
           <EventList 
@@ -1463,7 +1492,14 @@ export default function App() {
           onResetAttendance={handleResetAttendance}
           onDeleteParticipant={handleDeleteParticipant}
           onEditParticipant={(p) => { setEditingParticipant(p); setIsParticipantModalOpen(true); }}
-          onSendEmail={(p) => setEmailSendingParticipants([p])}
+          onSendEmail={(p) => {
+            setEmailSendingParticipants([p]);
+            setEmailSendingType('certificates');
+          }}
+          onSendCredentialEmail={(p) => {
+            setEmailSendingParticipants([p]);
+            setEmailSendingType('credentials');
+          }}
           onBulkPrintCertificates={() => {
             const toPrint = participants.filter(p => p.eventId === selectedEventId && p.attended);
             if (toPrint.length === 0) {
@@ -2003,6 +2039,7 @@ export default function App() {
           onSendEmail={(p) => {
             setPreviewParticipant(null);
             setEmailSendingParticipants([p]);
+            setEmailSendingType('certificates');
           }}
         />
       )}
@@ -2013,6 +2050,11 @@ export default function App() {
           participant={previewCredentialParticipant}
           authorities={authorities}
           onClose={() => setPreviewCredentialParticipant(null)}
+          onSendEmail={(p) => {
+            setPreviewCredentialParticipant(null);
+            setEmailSendingParticipants([p]);
+            setEmailSendingType('credentials');
+          }}
         />
       )}
 

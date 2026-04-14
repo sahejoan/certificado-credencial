@@ -1,18 +1,19 @@
 import React from 'react';
-import { Calendar, Users, Award, Layout as LayoutIcon, Plus, ChevronLeft, LogOut, Shield, BarChart3 } from 'lucide-react';
+import { Calendar, Users, Award, Layout as LayoutIcon, Plus, ChevronLeft, LogOut, Shield, BarChart3, LayoutDashboard } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { User } from '../types';
 
 interface LayoutProps {
   children: React.ReactNode;
-  activeTab: 'events' | 'participants' | 'design' | 'authorities' | 'users' | 'reports';
-  setActiveTab: (tab: 'events' | 'participants' | 'design' | 'authorities' | 'users' | 'reports') => void;
+  activeTab: 'dashboard' | 'events' | 'participants' | 'design' | 'authorities' | 'users' | 'reports';
+  setActiveTab: (tab: 'dashboard' | 'events' | 'participants' | 'design' | 'authorities' | 'users' | 'reports') => void;
   user: User | null;
   onLogout: () => void;
 }
 
 export default function Layout({ children, activeTab, setActiveTab, user, onLogout }: LayoutProps) {
   const navItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'events', label: 'Eventos', icon: Calendar },
     { id: 'participants', label: 'Participantes', icon: Users },
     { id: 'authorities', label: 'Autoridades', icon: Award },
@@ -31,7 +32,7 @@ export default function Layout({ children, activeTab, setActiveTab, user, onLogo
         <div className="p-6 border-b border-white/5">
           <div className="flex items-center gap-2 text-indigo-400">
             <Award className="w-8 h-8" />
-            <span className="font-bold text-xl tracking-tight text-white">CertiEvent</span>
+            <span className="font-bold text-xl tracking-tight text-white">AmadeusEvent</span>
           </div>
         </div>
 

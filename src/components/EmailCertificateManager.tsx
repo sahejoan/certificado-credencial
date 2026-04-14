@@ -7,6 +7,8 @@ import { formatDate, getAuthorityX, getVerificationUrl } from '../lib/utils';
 import { ROLES } from '../constants';
 import { toast } from 'react-hot-toast';
 import { Mail, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { db } from '../firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 
 const jsPDFClass = (jspdf as any).jsPDF || (jspdf as any).default || jspdf;
 
@@ -207,6 +209,15 @@ export default function EmailCertificateManager({ event, participants, authoriti
       const result = await response.json();
 
       if (response.ok) {
+        // Update participant history in Firestore
+        try {
+          await updateDoc(doc(db, 'participants', participant.id), {
+            certificateSentAt: Date.now()
+          });
+        } catch (dbError) {
+          console.error('Error updating participant history:', dbError);
+        }
+
         setProcessedCount(prev => prev + 1);
         
         if (currentIndex < participants.length - 1) {

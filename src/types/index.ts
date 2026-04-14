@@ -50,6 +50,8 @@ export interface Participant {
   role: Role;
   registrationDate: number;
   attended: boolean;
+  certificateSentAt?: number;
+  credentialSentAt?: number;
   createdAt?: number;
   updatedAt?: number;
 }

@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Stage, Layer, Text, Image as KonvaImage, Rect } from 'react-konva';
-import { Download, X, ChevronLeft } from 'lucide-react';
+import { Download, X, ChevronLeft, Mail } from 'lucide-react';
 import QRCode from 'qrcode';
 import { Event, Participant, Authority } from '../types';
 import { formatDate, getVerificationUrl } from '../lib/utils';
@@ -11,9 +11,10 @@ interface CredentialPreviewProps {
   participant: Participant;
   authorities: Authority[];
   onClose: () => void;
+  onSendEmail?: (participant: Participant) => void;
 }
 
-export default function CredentialPreview({ event, participant, authorities, onClose }: CredentialPreviewProps) {
+export default function CredentialPreview({ event, participant, authorities, onClose, onSendEmail }: CredentialPreviewProps) {
   const stageRef = useRef<any>(null);
   const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
   const [qrImages, setQrImages] = useState<Record<string, HTMLImageElement>>({});
@@ -206,6 +207,15 @@ export default function CredentialPreview({ event, participant, authorities, onC
               </div>
             </div>
             <div className="flex items-center gap-3">
+              {onSendEmail && (
+                <button
+                  onClick={() => onSendEmail(participant)}
+                  className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-500 transition-all shadow-xl text-sm font-black active:scale-95"
+                >
+                  <Mail className="w-4 h-4" />
+                  ENVIAR POR EMAIL
+                </button>
+              )}
               <button
                 onClick={handleDownload}
                 className="flex items-center gap-2 px-6 py-3 bg-white text-black rounded-2xl hover:bg-zinc-200 transition-all shadow-xl text-sm font-black active:scale-95"
@@ -286,7 +296,7 @@ export default function CredentialPreview({ event, participant, authorities, onC
           
           <div className="px-10 py-6 bg-zinc-900/80 border-t border-white/5 flex items-center justify-between">
             <p className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.3em]">
-              CertiEvent Digital ID System
+              AmadeusEvent Digital ID System
             </p>
             <div className="flex gap-1">
               {[1, 2, 3].map(i => (
