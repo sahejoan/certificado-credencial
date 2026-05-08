@@ -32,24 +32,48 @@ export default function QRScanner({ onScan, onClose, participants }: QRScannerPr
       
       try {
         if (decodedText.includes('verify=')) {
-          const url = new URL(decodedText);
-          participantId = url.searchParams.get('verify') || decodedText;
+          try {
+            // Try to parse as URL if it looks like one
+            if (decodedText.startsWith('http')) {
+              const url = new URL(decodedText);
+              participantId = url.searchParams.get('verify') || decodedText;
+            } else {
+              // Handle cases like "example.com/?verify=abc" or just "?verify=abc"
+              const match = decodedText.match(/[?&]verify=([^&]+)/);
+              if (match) participantId = match[1];
+            }
+          } catch (e) {
+            // Fallback: extract anything after verify=
+            const parts = decodedText.split('verify=');
+            if (parts.length > 1) participantId = parts[1].split('&')[0];
+          }
         }
 
         const participant = participants.find(p => p.id === participantId);
         
         if (!participant) {
-          setScanResult({ success: false, message: 'Participante no encontrado en este sistema.' });
+          setScanResult({ success: false, message: 'Participante no encontrado. Verifica que el código QR sea válido.' });
           return;
         }
 
         if (participant.attended) {
-          setScanResult({ success: false, message: 'Este participante ya ha registrado su asistencia.', participant });
+          setScanResult({ success: true, message: 'Este participante ya tiene su asistencia registrada.', participant });
+          
+          // Even if already attended, we show success (green) but with an informative message
+          // so it doesn't look like an "error" to the user.
+          scanner.pause();
+          setIsScanning(false);
+          setTimeout(() => {
+            setScanResult(null);
+            scanner.resume();
+            setIsScanning(true);
+          }, 3000);
           return;
         }
 
+        // Mark as attended
         await onScan(participantId);
-        setScanResult({ success: true, message: '¡Asistencia registrada con éxito!', participant });
+        setScanResult({ success: true, message: '¡Asistencia confirmada correctamente!', participant });
         
         // Pause scanning for a moment to show success
         scanner.pause();
@@ -63,7 +87,7 @@ export default function QRScanner({ onScan, onClose, participants }: QRScannerPr
 
       } catch (error) {
         console.error('Error processing scan:', error);
-        setScanResult({ success: false, message: 'Error al procesar el código QR.' });
+        setScanResult({ success: false, message: 'Hubo un problema al registrar la asistencia. Intenta de nuevo.' });
       }
     };
 

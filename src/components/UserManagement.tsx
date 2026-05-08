@@ -23,11 +23,15 @@ export default function UserManagement({ currentUser }: UserManagementProps) {
   const [editRole, setEditRole] = useState<UserRole>('viewer');
   const [editName, setEditName] = useState('');
   const [editPassword, setEditPassword] = useState('');
+  const [confirmEditPassword, setConfirmEditPassword] = useState('');
+  const [showEditPassword, setShowEditPassword] = useState(false);
   
   const [newEmail, setNewEmail] = useState('');
   const [newRole, setNewRole] = useState<UserRole>('viewer');
   const [newName, setNewName] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
 
   useEffect(() => {
     const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
@@ -43,6 +47,12 @@ export default function UserManagement({ currentUser }: UserManagementProps) {
 
     setIsLoading(true);
     try {
+      if (newPassword && newPassword !== confirmNewPassword) {
+        toast.error('Las contraseñas no coinciden');
+        setIsLoading(false);
+        return;
+      }
+
       // Check if user already exists
       const existingUser = users.find(u => u.email.toLowerCase() === newEmail.toLowerCase());
       if (existingUser) {
@@ -94,6 +104,7 @@ export default function UserManagement({ currentUser }: UserManagementProps) {
       setNewName('');
       setNewRole('viewer');
       setNewPassword('');
+      setConfirmNewPassword('');
     } catch (error: any) {
       console.error('Error adding user:', error);
       toast.error(error.message || 'Error al agregar usuario');
@@ -108,6 +119,8 @@ export default function UserManagement({ currentUser }: UserManagementProps) {
     setEditName(user.displayName || '');
     setEditRole(user.role);
     setEditPassword('');
+    setConfirmEditPassword('');
+    setShowEditPassword(false);
     setIsEditModalOpen(true);
   };
 
@@ -117,6 +130,12 @@ export default function UserManagement({ currentUser }: UserManagementProps) {
 
     setIsLoading(true);
     try {
+      if (editPassword && editPassword !== confirmEditPassword) {
+        toast.error('Las contraseñas no coinciden');
+        setIsLoading(false);
+        return;
+      }
+
       const updates: Partial<User> = {
         role: editRole,
         displayName: editName || undefined
@@ -157,6 +176,7 @@ export default function UserManagement({ currentUser }: UserManagementProps) {
       setIsEditModalOpen(false);
       setEditingUser(null);
       setEditPassword('');
+      setConfirmEditPassword('');
     } catch (error: any) {
       console.error('Error updating user:', error);
       toast.error(error.message || 'Error al actualizar usuario');
@@ -404,18 +424,42 @@ export default function UserManagement({ currentUser }: UserManagementProps) {
                 </select>
               </div>
               {!editingUser.uid.startsWith('pending_') && (
-                <div>
-                  <label className="block text-sm font-medium text-zinc-400 mb-1">Nueva Contraseña (Opcional)</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-                    <input
-                      type="password"
-                      value={editPassword}
-                      onChange={(e) => setEditPassword(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 bg-zinc-800 border border-white/10 rounded-xl text-white outline-none focus:ring-2 focus:ring-indigo-500"
-                      placeholder="Dejar en blanco para no cambiar"
-                    />
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-zinc-400 mb-1">Nueva Contraseña (Opcional)</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                      <input
+                        type={showEditPassword ? "text" : "password"}
+                        value={editPassword}
+                        onChange={(e) => setEditPassword(e.target.value)}
+                        className="w-full pl-10 pr-12 py-3 bg-zinc-800 border border-white/10 rounded-xl text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                        placeholder="Dejar en blanco para no cambiar"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowEditPassword(!showEditPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                      >
+                        {showEditPassword ? <X className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
+                  {editPassword && (
+                    <div>
+                      <label className="block text-sm font-medium text-zinc-400 mb-1">Confirmar Contraseña</label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                        <input
+                          type={showEditPassword ? "text" : "password"}
+                          value={confirmEditPassword}
+                          onChange={(e) => setConfirmEditPassword(e.target.value)}
+                          className="w-full pl-10 pr-4 py-3 bg-zinc-800 border border-white/10 rounded-xl text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                          placeholder="Repite la contraseña"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               <button
@@ -482,19 +526,43 @@ export default function UserManagement({ currentUser }: UserManagementProps) {
                   <option value="admin">Administrador</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-1">Contraseña (Opcional)</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-                  <input
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-zinc-800 border border-white/10 rounded-xl text-white outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="Contraseña para el nuevo usuario"
-                  />
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-zinc-400 mb-1">Contraseña (Opcional)</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                    <input
+                      type={showNewPassword ? "text" : "password"}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="w-full pl-10 pr-12 py-3 bg-zinc-800 border border-white/10 rounded-xl text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                      placeholder="Contraseña para el nuevo usuario"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                    >
+                      {showNewPassword ? <X className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-zinc-500 mt-1">Si se proporciona, el usuario se creará inmediatamente.</p>
                 </div>
-                <p className="text-[10px] text-zinc-500 mt-1">Si se proporciona, el usuario se creará inmediatamente.</p>
+                {newPassword && (
+                  <div>
+                    <label className="block text-sm font-medium text-zinc-400 mb-1">Confirmar Contraseña</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                      <input
+                        type={showNewPassword ? "text" : "password"}
+                        value={confirmNewPassword}
+                        onChange={(e) => setConfirmNewPassword(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 bg-zinc-800 border border-white/10 rounded-xl text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                        placeholder="Repite la contraseña"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
               <button
                 type="submit"

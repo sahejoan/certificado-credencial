@@ -60,7 +60,10 @@ export default function DesignEditor({
     const currentElements = template.elements || [];
     // If it's a new template or missing QR, and it's a credential/certificate, we might want to ensure one exists
     // However, we'll respect the user's choice but add a default one if the template is completely empty
-    if (currentElements.length === 0) {
+    // OR if it's a credential and missing a QR code
+    const hasQr = currentElements.some(el => el.type === 'qr_code');
+    
+    if (currentElements.length === 0 || (!hasQr && title.toLowerCase().includes('credencial'))) {
       const defaultQr: TemplateElement = {
         id: 'qr_' + Math.random().toString(36).substr(2, 9),
         type: 'qr_code',
@@ -71,13 +74,18 @@ export default function DesignEditor({
         height: 100,
         fill: '#000000'
       };
-      setElements([defaultQr]);
+      
+      if (currentElements.length === 0) {
+        setElements([defaultQr]);
+      } else if (!hasQr) {
+        setElements([...currentElements, defaultQr]);
+      }
     } else {
       setElements(currentElements);
     }
     setBackgroundUrl(template.backgroundUrl);
     setSelectedId(null);
-  }, [template, width, height]);
+  }, [template, width, height, title]);
 
   useEffect(() => {
     if (backgroundUrl) {
@@ -124,8 +132,8 @@ export default function DesignEditor({
       id: Math.random().toString(36).substr(2, 9),
       type,
       content: type === 'text' ? 'Nuevo Texto' : type === 'variable' ? 'participant_name' : 'verification_url',
-      x: type === 'qr_code' ? 680 : 100,
-      y: type === 'qr_code' ? 380 : 100,
+      x: type === 'qr_code' ? width - 120 : 100,
+      y: type === 'qr_code' ? height - 120 : 100,
       fill: '#000000',
     };
 

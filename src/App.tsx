@@ -44,6 +44,7 @@ import {
   Ticket,
   Zap,
   Globe,
+  ShieldCheck,
   Star
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -367,36 +368,43 @@ export default function App() {
   }, [firebaseUser]);
 
   useEffect(() => {
-    if (!isAuthReady || !user) return;
+    if (!isAuthReady) return;
 
-    const unsubAuthorities = onSnapshot(collection(db, 'authorities'), (snapshot) => {
-      const auths = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Authority));
-      
-      // Cleanup: Ensure authorities without signatureUrl are not active
-      auths.forEach(async (a) => {
-        if (!a.signatureUrl && a.isSignatureActive) {
-          try {
-            await updateDoc(doc(db, 'authorities', a.id), { isSignatureActive: false });
-          } catch (error) {
-            console.error('Error cleaning up authority:', error);
-          }
-        }
-      });
-      
-      setAuthorities(auths);
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'authorities'));
-
+    // Publicly accessible data
     const unsubEvents = onSnapshot(collection(db, 'events'), (snapshot) => {
       setEvents(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Event)));
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'events'));
 
-    const unsubParticipants = onSnapshot(collection(db, 'participants'), (snapshot) => {
-      setParticipants(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Participant)));
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'participants'));
+    // Protected data (requires login)
+    let unsubAuthorities = () => {};
+    let unsubParticipants = () => {};
+
+    if (user) {
+      unsubAuthorities = onSnapshot(collection(db, 'authorities'), (snapshot) => {
+        const auths = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Authority));
+        
+        // Cleanup: Ensure authorities without signatureUrl are not active
+        auths.forEach(async (a) => {
+          if (!a.signatureUrl && a.isSignatureActive) {
+            try {
+              await updateDoc(doc(db, 'authorities', a.id), { isSignatureActive: false });
+            } catch (error) {
+              console.error('Error cleaning up authority:', error);
+            }
+          }
+        });
+        
+        setAuthorities(auths);
+      }, (error) => handleFirestoreError(error, OperationType.LIST, 'authorities'));
+
+      unsubParticipants = onSnapshot(collection(db, 'participants'), (snapshot) => {
+        setParticipants(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Participant)));
+      }, (error) => handleFirestoreError(error, OperationType.LIST, 'participants'));
+    }
 
     return () => {
-      unsubAuthorities();
       unsubEvents();
+      unsubAuthorities();
       unsubParticipants();
     };
   }, [isAuthReady, user]);
@@ -684,7 +692,7 @@ export default function App() {
           </div>
 
           {/* Left Side: Hero Info */}
-          <div className="lg:w-1/2 flex flex-col justify-center p-12 lg:p-24 relative z-10">
+          <div className="lg:w-1/2 flex flex-col justify-start pt-24 lg:pt-40 p-12 lg:p-24 relative z-10">
             <motion.div
               initial={{ opacity: 0, x: -50 }}
               animate={{ opacity: 1, x: 0 }}
@@ -904,43 +912,48 @@ export default function App() {
     }
 
     return (
-      <div className="min-h-screen bg-zinc-950 flex flex-col md:flex-row relative font-sans">
+      <div className="min-h-screen bg-zinc-950 flex flex-col md:flex-row relative font-sans selection:bg-indigo-500/30">
         {/* Background Atmosphere */}
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+          <div className="absolute inset-0 bg-noise opacity-[0.03] mix-blend-overlay"></div>
           <motion.div 
             animate={{ 
-              scale: [1, 1.1, 1],
-              opacity: [0.05, 0.1, 0.05],
-              x: [0, 50, 0],
-              y: [0, 30, 0]
+              scale: [1, 1.2, 1],
+              opacity: [0.1, 0.15, 0.1],
+              x: [0, 100, 0],
+              y: [0, 50, 0]
             }}
-            transition={{ duration: 15, repeat: Infinity }}
-            className="absolute top-[-10%] left-[-10%] w-[70%] h-[70%] bg-indigo-600/20 blur-[160px] rounded-full"
+            transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+            className="absolute top-[-20%] left-[-10%] w-[80%] h-[80%] bg-indigo-600/30 blur-[180px] rounded-full"
           ></motion.div>
           <motion.div 
             animate={{ 
-              scale: [1.1, 1, 1.1],
-              opacity: [0.05, 0.1, 0.05],
-              x: [0, -50, 0],
-              y: [0, -30, 0]
+              scale: [1.2, 1, 1.2],
+              opacity: [0.1, 0.15, 0.1],
+              x: [0, -100, 0],
+              y: [0, -50, 0]
             }}
-            transition={{ duration: 18, repeat: Infinity }}
-            className="absolute bottom-[-10%] right-[-10%] w-[70%] h-[70%] bg-purple-600/20 blur-[160px] rounded-full"
+            transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+            className="absolute bottom-[-20%] right-[-10%] w-[80%] h-[80%] bg-purple-600/30 blur-[180px] rounded-full"
           ></motion.div>
         </div>
 
         {/* Marquee Section */}
-        <div className="absolute top-0 left-0 w-full h-12 lg:h-16 bg-white/5 backdrop-blur-md border-b border-white/5 z-20 overflow-hidden flex items-center">
+        <div className="absolute top-0 left-0 w-full h-10 lg:h-14 bg-zinc-950/40 backdrop-blur-xl border-b border-white/5 z-20 overflow-hidden flex items-center">
           <div className="flex animate-marquee whitespace-nowrap">
             {[...Array(10)].map((_, i) => (
-              <div key={i} className="flex items-center gap-4 lg:gap-8 px-4 lg:px-8">
-                <span className="text-[8px] lg:text-[10px] font-black text-white/40 uppercase tracking-[0.3em] lg:tracking-[0.5em] flex items-center gap-2">
-                  <Zap className="w-2.5 h-2.5 lg:w-3 h-3 text-indigo-400" />
-                  Certificación Digital
+              <div key={i} className="flex items-center gap-6 lg:gap-12 px-6 lg:px-12">
+                <span className="text-[9px] lg:text-[11px] font-black text-white/30 uppercase tracking-[0.4em] flex items-center gap-3">
+                  <Zap className="w-3 h-3 text-indigo-400" />
+                  Certificación Digital de Élite
                 </span>
-                <span className="text-[8px] lg:text-[10px] font-black text-white/40 uppercase tracking-[0.3em] lg:tracking-[0.5em] flex items-center gap-2">
-                  <Globe className="w-2.5 h-2.5 lg:w-3 h-3 text-purple-400" />
-                  Acceso Global
+                <span className="text-[9px] lg:text-[11px] font-black text-white/30 uppercase tracking-[0.4em] flex items-center gap-3">
+                  <Globe className="w-3 h-3 text-purple-400" />
+                  Estándares Globales UPEL
+                </span>
+                <span className="text-[9px] lg:text-[11px] font-black text-white/30 uppercase tracking-[0.4em] flex items-center gap-3">
+                  <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                  Verificación QR Instantánea
                 </span>
               </div>
             ))}
@@ -948,132 +961,141 @@ export default function App() {
         </div>
 
         {/* Left Side: Hero / Branding */}
-        <div className="flex-1 flex flex-col justify-center p-6 sm:p-10 md:p-16 lg:p-24 pt-24 sm:pt-32 md:pt-24 relative z-10 md:overflow-y-auto no-scrollbar">
+        <div className="flex-1 flex flex-col justify-start p-6 sm:p-10 md:p-16 lg:p-20 pt-32 sm:pt-40 md:pt-32 relative z-10 md:overflow-y-auto no-scrollbar">
           <motion.div
-            initial={{ opacity: 0, x: -50 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
-            className="max-w-3xl"
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+            className="max-w-4xl"
           >
             <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="flex items-center gap-3 sm:gap-5 mb-6 sm:mb-8"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.2, duration: 0.8 }}
+              className="flex items-center gap-4 sm:gap-6 mb-6 sm:mb-10"
             >
-              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-indigo-600 rounded-[18px] sm:rounded-[24px] flex items-center justify-center text-white shadow-[0_10px_20px_rgba(79,70,229,0.4)] transform -rotate-12 hover:rotate-0 transition-transform duration-500">
-                <Award className="w-7 h-7 sm:w-10 sm:h-10" />
+              <div className="relative group">
+                <div className="absolute inset-0 bg-indigo-600 blur-2xl opacity-40 group-hover:opacity-60 transition-opacity"></div>
+                <div className="relative w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-[18px] sm:rounded-[24px] flex items-center justify-center text-white shadow-2xl transform -rotate-12 group-hover:rotate-0 transition-all duration-700 ease-out">
+                  <Award className="w-6 h-6 sm:w-10 sm:h-10" />
+                </div>
               </div>
-              <span className="text-2xl sm:text-3xl font-black text-white tracking-tighter uppercase italic font-display">AmadeusEvent</span>
+              <div className="flex flex-col">
+                <span className="text-2xl sm:text-3xl font-black text-white tracking-tighter uppercase italic font-display leading-none">AmadeusEvent</span>
+                <span className="text-[9px] sm:text-[10px] font-black text-indigo-400 uppercase tracking-[0.5em] mt-1">UPEL-IMPM Calabozo</span>
+              </div>
             </motion.div>
 
             <motion.h1 
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white tracking-tighter mb-6 sm:mb-8 font-display uppercase leading-tight"
+              transition={{ delay: 0.4, duration: 0.8 }}
+              className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-white tracking-tighter mb-6 sm:mb-8 font-display uppercase leading-[0.9]"
             >
-              CREA <span className="text-indigo-500">IMPACTO.</span> <br className="hidden sm:block" /> <span className="text-white/10">CERTIFICA.</span>
+              EL FUTURO <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-indigo-400 bg-[length:200%_auto] animate-gradient-x">ES DIGITAL.</span>
             </motion.h1>
 
             <motion.p 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 0.6 }}
-              className="text-base sm:text-lg lg:text-xl text-zinc-500 mb-8 sm:mb-10 max-w-2xl leading-relaxed font-medium"
+              transition={{ delay: 0.6, duration: 1 }}
+              className="text-base sm:text-lg lg:text-xl text-zinc-400 mb-8 sm:mb-10 max-w-2xl leading-relaxed font-medium border-l-2 border-indigo-500/30 pl-6"
             >
-              La plataforma de gestión de certificados y credenciales de eventos académicos del Doctorado en Educación UPEL-IMPM aplicación Calabozo
+              Gestión profesional de certificados y credenciales académicas para el Doctorado en Educación. <span className="text-white">Excelencia institucional en cada detalle.</span>
             </motion.p>
 
             <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
               <motion.button
-                whileHover={{ scale: 1.05, x: 10 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.02, y: -5 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => setIsPublicRegistration(true)}
-                className="group flex items-center justify-center gap-4 sm:gap-6 bg-white text-zinc-950 px-8 sm:px-12 py-4 sm:py-8 rounded-[24px] sm:rounded-[32px] font-black text-lg sm:text-xl hover:bg-indigo-50 transition-all duration-500 shadow-[0_20px_40px_rgba(255,255,255,0.1)]"
+                className="group relative flex items-center justify-center gap-4 bg-white text-zinc-950 px-8 sm:px-10 py-4 sm:py-6 rounded-[24px] sm:rounded-[32px] font-black text-lg sm:text-xl hover:bg-indigo-50 transition-all duration-500 shadow-[0_20px_40px_rgba(255,255,255,0.1)] overflow-hidden"
               >
-                <UserPlus className="w-5 h-5 sm:w-6 sm:h-6" />
-                REGISTRARSE AHORA
-                <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6 group-hover:translate-x-2 transition-transform duration-500" />
+                <div className="absolute inset-0 bg-gradient-to-r from-indigo-100 to-white opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <UserPlus className="w-5 h-5 sm:w-6 sm:h-6 relative z-10" />
+                <span className="relative z-10">REGISTRARSE</span>
+                <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6 group-hover:translate-x-3 transition-transform duration-500 relative z-10" />
               </motion.button>
             </div>
             
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 0.8 }}
-              className="mt-12 sm:mt-16 flex flex-wrap items-center gap-8 sm:gap-12 text-zinc-700"
+              transition={{ delay: 0.8, duration: 1 }}
+              className="mt-12 sm:mt-16 flex flex-wrap items-center gap-8 sm:gap-12"
             >
               <div className="flex flex-col gap-1">
                 <span className="text-3xl sm:text-4xl font-black text-white tracking-tighter">100%</span>
-                <span className="text-[9px] sm:text-[10px] uppercase tracking-[0.4em] font-black text-zinc-500">Digital</span>
+                <span className="text-[9px] sm:text-[10px] uppercase tracking-[0.4em] font-black text-zinc-600">Ecosistema Digital</span>
               </div>
-              <div className="w-px h-10 sm:h-12 bg-white/10 hidden sm:block"></div>
               <div className="flex flex-col gap-1">
                 <span className="text-3xl sm:text-4xl font-black text-white tracking-tighter">QR</span>
-                <span className="text-[9px] sm:text-[10px] uppercase tracking-[0.4em] font-black text-zinc-500">Seguro</span>
+                <span className="text-[9px] sm:text-[10px] uppercase tracking-[0.4em] font-black text-zinc-600">Seguridad Criptográfica</span>
               </div>
-              <div className="w-px h-10 sm:h-12 bg-white/10 hidden sm:block"></div>
               <div className="flex flex-col gap-1">
                 <span className="text-3xl sm:text-4xl font-black text-white tracking-tighter">PDF</span>
-                <span className="text-[9px] sm:text-[10px] uppercase tracking-[0.4em] font-black text-zinc-500">Premium</span>
+                <span className="text-[9px] sm:text-[10px] uppercase tracking-[0.4em] font-black text-zinc-600">Calidad de Impresión</span>
               </div>
             </motion.div>
           </motion.div>
         </div>
 
         {/* Right Side: Login Panel */}
-        <div className="w-full md:w-[500px] lg:w-[650px] bg-zinc-950/50 backdrop-blur-3xl border-t md:border-t-0 md:border-l border-white/5 flex flex-col justify-start md:justify-center p-6 sm:p-10 md:p-16 lg:p-24 relative z-10 overflow-y-auto no-scrollbar min-h-[500px] md:min-h-0">
-          {/* Floating decorative elements for login panel */}
-          <div className="absolute top-20 right-20 w-32 h-32 bg-indigo-500/5 blur-3xl rounded-full hidden sm:block"></div>
-          <div className="absolute bottom-20 left-20 w-32 h-32 bg-purple-500/5 blur-3xl rounded-full hidden sm:block"></div>
-
+        <div className="w-full md:w-[550px] lg:w-[750px] bg-zinc-950/40 backdrop-blur-[100px] border-t md:border-t-0 md:border-l border-white/5 flex flex-col justify-start md:justify-center p-8 sm:p-12 md:p-20 lg:p-32 relative z-10 overflow-y-auto no-scrollbar min-h-[600px] md:min-h-0">
+          <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/5 to-transparent pointer-events-none"></div>
+          
           <motion.div
-            initial={{ opacity: 0, x: 50 }}
+            initial={{ opacity: 0, x: 60 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay: 0.3 }}
-            className="w-full max-w-md mx-auto pb-10 sm:pb-20"
+            transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1], delay: 0.4 }}
+            className="w-full max-w-md mx-auto relative"
           >
-            <div className="mb-8">
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600/10 text-indigo-400 text-[10px] sm:text-[11px] font-black uppercase tracking-[0.3em] sm:tracking-[0.4em] rounded-full mb-4 border border-indigo-500/20">
-                <Shield className="w-3 h-3" />
-                Portal de Gestión
+            <div className="mb-12 sm:mb-16">
+              <div className="inline-flex items-center gap-3 px-5 py-2.5 bg-indigo-500/10 text-indigo-400 text-[11px] sm:text-[12px] font-black uppercase tracking-[0.4em] rounded-full mb-6 border border-indigo-500/20 shadow-lg shadow-indigo-500/5">
+                <ShieldCheck className="w-4 h-4" />
+                Acceso Restringido
               </div>
-              <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 tracking-tighter font-display uppercase">Acceso Admin</h2>
-              <p className="text-zinc-500 text-base sm:text-lg leading-relaxed">Control total sobre tus eventos y certificaciones.</p>
+              <h2 className="text-3xl sm:text-4xl font-black text-white mb-4 tracking-tighter font-display uppercase italic">Portal Administrativo</h2>
+              <p className="text-zinc-500 text-lg sm:text-xl leading-relaxed font-medium">Inicia sesión para gestionar el ecosistema de eventos.</p>
             </div>
 
             {/* Email/Password Form */}
-            <form onSubmit={handleEmailAuth} className="space-y-6 sm:space-y-10">
-              <div className="space-y-4 sm:space-y-6">
-                <div className="space-y-2 sm:space-y-4">
-                  <label className="text-[10px] sm:text-[11px] font-black text-zinc-500 uppercase tracking-[0.4em] sm:tracking-[0.5em] ml-4 sm:ml-6">E-mail Corporativo</label>
+            <form onSubmit={handleEmailAuth} className="space-y-8 sm:space-y-12">
+              <div className="space-y-6 sm:space-y-8">
+                <div className="space-y-3 sm:space-y-4">
+                  <div className="flex justify-between items-center px-6 sm:px-8">
+                    <label className="text-[11px] sm:text-[12px] font-black text-zinc-500 uppercase tracking-[0.5em]">Identificación</label>
+                  </div>
                   <div className="relative group">
-                    <div className="absolute inset-y-0 left-6 sm:left-8 flex items-center pointer-events-none">
-                      <Mail className="w-5 h-5 sm:w-6 h-6 text-zinc-600 group-focus-within:text-indigo-500 transition-colors duration-300" />
+                    <div className="absolute inset-y-0 left-8 sm:left-10 flex items-center pointer-events-none">
+                      <Mail className="w-6 h-6 text-zinc-600 group-focus-within:text-indigo-400 transition-colors duration-500" />
                     </div>
                     <input 
                       type="email" 
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="admin@certievent.com"
-                      className="w-full bg-zinc-900/40 border border-white/5 rounded-[24px] sm:rounded-[32px] py-4 sm:py-8 pl-16 sm:pl-20 pr-6 sm:pr-8 text-white focus:ring-2 focus:ring-indigo-500/50 focus:bg-zinc-900/60 outline-none transition-all text-base sm:text-lg font-medium placeholder:text-zinc-700"
+                      placeholder="admin@amadeusevent.com"
+                      className="w-full bg-zinc-900/40 border border-white/5 rounded-[30px] sm:rounded-[40px] py-6 sm:py-9 pl-20 sm:pl-24 pr-8 sm:pr-10 text-white focus:ring-2 focus:ring-indigo-500/40 focus:bg-zinc-900/80 outline-none transition-all text-lg sm:text-xl font-medium placeholder:text-zinc-800 shadow-inner"
                       required
                     />
                   </div>
                 </div>
-                <div className="space-y-2 sm:space-y-4">
-                  <label className="text-[10px] sm:text-[11px] font-black text-zinc-500 uppercase tracking-[0.4em] sm:tracking-[0.5em] ml-4 sm:ml-6">Contraseña</label>
+                <div className="space-y-3 sm:space-y-4">
+                  <div className="flex justify-between items-center px-6 sm:px-8">
+                    <label className="text-[11px] sm:text-[12px] font-black text-zinc-500 uppercase tracking-[0.5em]">Clave de Acceso</label>
+                    <button type="button" className="text-[10px] font-black text-indigo-500/60 hover:text-indigo-400 uppercase tracking-[0.2em] transition-colors">¿Olvidaste tu clave?</button>
+                  </div>
                   <div className="relative group">
-                    <div className="absolute inset-y-0 left-6 sm:left-8 flex items-center pointer-events-none">
-                      <Lock className="w-5 h-5 sm:w-6 h-6 text-zinc-600 group-focus-within:text-indigo-500 transition-colors duration-300" />
+                    <div className="absolute inset-y-0 left-8 sm:left-10 flex items-center pointer-events-none">
+                      <Lock className="w-6 h-6 text-zinc-600 group-focus-within:text-indigo-400 transition-colors duration-500" />
                     </div>
                     <input 
                       type="password" 
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full bg-zinc-900/40 border border-white/5 rounded-[24px] sm:rounded-[32px] py-4 sm:py-8 pl-16 sm:pl-20 pr-6 sm:pr-8 text-white focus:ring-2 focus:ring-indigo-500/50 focus:bg-zinc-900/60 outline-none transition-all text-base sm:text-lg font-medium placeholder:text-zinc-700"
+                      placeholder="••••••••••••"
+                      className="w-full bg-zinc-900/40 border border-white/5 rounded-[30px] sm:rounded-[40px] py-6 sm:py-9 pl-20 sm:pl-24 pr-8 sm:pr-10 text-white focus:ring-2 focus:ring-indigo-500/40 focus:bg-zinc-900/80 outline-none transition-all text-lg sm:text-xl font-medium placeholder:text-zinc-800 shadow-inner"
                       required
                     />
                   </div>
@@ -1081,14 +1103,10 @@ export default function App() {
               </div>
 
               {/* Google Login */}
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-4"
-              >
-                  <div className="flex items-center gap-4">
+              <div className="space-y-6">
+                  <div className="flex items-center gap-6">
                     <div className="h-px flex-1 bg-white/5"></div>
-                    <span className="text-[9px] sm:text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em] sm:tracking-[0.3em]">O continuar con</span>
+                    <span className="text-[10px] sm:text-[11px] font-black text-zinc-700 uppercase tracking-[0.4em]">Autenticación Segura</span>
                     <div className="h-px flex-1 bg-white/5"></div>
                   </div>
                   <motion.button
@@ -1096,10 +1114,10 @@ export default function App() {
                     whileTap={{ scale: 0.98 }}
                     type="button"
                     onClick={handleLogin}
-                    className="w-full flex items-center justify-center gap-4 sm:gap-6 bg-white text-zinc-950 py-4 sm:py-6 rounded-[20px] sm:rounded-[28px] font-black text-base sm:text-lg hover:bg-indigo-50 transition-all duration-500 shadow-[0_20px_40px_rgba(255,255,255,0.1)] relative overflow-hidden group"
+                    className="w-full flex items-center justify-center gap-6 bg-white text-zinc-950 py-5 sm:py-7 rounded-[25px] sm:rounded-[35px] font-black text-lg sm:text-xl hover:bg-indigo-50 transition-all duration-500 shadow-[0_25px_50px_rgba(255,255,255,0.05)] relative overflow-hidden group"
                   >
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-                    <svg className="w-6 h-6 sm:w-7 sm:h-7" viewBox="0 0 24 24">
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                    <svg className="w-7 h-7 sm:w-8 sm:h-8" viewBox="0 0 24 24">
                       <path
                         fill="#4285F4"
                         d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -1117,40 +1135,41 @@ export default function App() {
                         d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                       />
                     </svg>
-                    <span>Google</span>
+                    <span>Google Workspace</span>
                   </motion.button>
-                </motion.div>
+              </div>
 
               <motion.button
-                whileHover={{ scale: 1.02, y: -4 }}
+                whileHover={{ scale: 1.02, y: -5 }}
                 whileTap={{ scale: 0.98 }}
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-indigo-600 text-white py-4 sm:py-8 rounded-[24px] sm:rounded-[32px] font-black text-lg sm:text-xl hover:bg-indigo-500 transition-all duration-500 shadow-[0_20px_40px_rgba(79,70,229,0.3)] flex items-center justify-center gap-4 group disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-indigo-600 text-white py-6 sm:py-10 rounded-[30px] sm:rounded-[40px] font-black text-xl sm:text-2xl hover:bg-indigo-500 transition-all duration-500 shadow-[0_30px_60px_rgba(79,70,229,0.3)] flex items-center justify-center gap-6 group disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
               >
+                <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
                 {isLoading ? (
-                  <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  <div className="w-8 h-8 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
                 ) : (
                   <>
-                    ENTRAR
-                    <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6 group-hover:translate-x-2 transition-transform duration-300" />
+                    ACCEDER AL SISTEMA
+                    <ArrowRight className="w-6 h-6 sm:w-8 sm:h-8 group-hover:translate-x-3 transition-transform duration-500" />
                   </>
                 )}
               </motion.button>
             </form>
 
-            <div className="mt-16 pt-10 border-t border-white/5 flex flex-col items-center gap-6">
-              <div className="flex justify-center gap-8 text-zinc-700">
-                <Shield className="w-5 h-5 hover:text-zinc-500 cursor-help transition-colors" />
-                <Lock className="w-5 h-5 hover:text-zinc-500 cursor-help transition-colors" />
-                <Award className="w-5 h-5 hover:text-zinc-500 cursor-help transition-colors" />
+            <div className="mt-20 pt-12 border-t border-white/5 flex flex-col items-center gap-8">
+              <div className="flex justify-center gap-12 text-zinc-800">
+                <ShieldCheck className="w-6 h-6 hover:text-indigo-500 cursor-help transition-all duration-300" />
+                <Lock className="w-6 h-6 hover:text-indigo-500 cursor-help transition-all duration-300" />
+                <Award className="w-6 h-6 hover:text-indigo-500 cursor-help transition-all duration-300" />
               </div>
               <div className="text-center">
-                <p className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.4em] mb-2">
+                <p className="text-[11px] font-black text-zinc-700 uppercase tracking-[0.5em] mb-3">
                   © {new Date().getFullYear()} AmadeusEvent
                 </p>
-                <p className="text-[11px] font-bold text-indigo-400/60 uppercase tracking-[0.2em]">
-                  Desarrollado por: Comité de Informática
+                <p className="text-[9px] font-black text-zinc-800 uppercase tracking-[0.3em]">
+                  Doctorado en Educación UPEL-IMPM
                 </p>
               </div>
             </div>
@@ -1631,6 +1650,8 @@ export default function App() {
             
             <DesignEditor 
               key={`${selectedEvent.id}-${designType}-${certificateSide}`}
+              width={designType === 'certificate' ? 800 : 400}
+              height={designType === 'certificate' ? 565 : 600}
               template={
                 designType === 'certificate' 
                   ? (certificateSide === 'front' ? selectedEvent.certificateTemplate : (selectedEvent.certificateBackTemplate || DEFAULT_CERTIFICATE_BACK_TEMPLATE))
@@ -1662,8 +1683,6 @@ export default function App() {
                 }
               }}
               title={`${designType === 'certificate' ? (certificateSide === 'front' ? 'Certificado (Frente)' : 'Certificado (Reverso)') : 'Credencial'}: ${selectedEvent.name}`}
-              width={designType === 'certificate' ? 800 : 400}
-              height={designType === 'certificate' ? 565 : 600}
             />
           </div>
         ) : (

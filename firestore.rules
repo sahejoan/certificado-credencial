@@ -72,7 +72,7 @@ service cloud.firestore {
     function isMainAdmin() {
       return isAuthenticated() && 
              request.auth.token.email != null && 
-             request.auth.token.email.lower() == "sahejoan@gmail.com";
+             request.auth.token.email.toLower() == "sahejoan@gmail.com";
     }
 
     function isAdmin() {
@@ -116,7 +116,7 @@ service cloud.firestore {
     // ===============================================================
 
     function isValidUser(data) {
-      return data.email is string && isValidEmail(data.email) &&
+      return data.email is string &&
              data.role in ['admin', 'editor', 'viewer'];
     }
 
@@ -174,11 +174,13 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && (
-        (request.auth.token.email != null && request.auth.token.email.lower() == "sahejoan@gmail.com") ||
-        request.auth.uid == userId ||
-        isAdmin()
+      allow write: if isMainAdmin();
+      allow create: if (isOwner(userId) || isAdmin()) && isValidUser(request.resource.data);
+      allow update: if (isOwner(userId) || isAdmin()) && (
+        // Only admins can change roles
+        (request.resource.data.role == resource.data.role) || isAdmin()
       );
+      allow delete: if isAdmin() && userId != request.auth.uid;
     }
 
     match /events/{eventId} {

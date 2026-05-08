@@ -302,7 +302,10 @@ async function startServer() {
     const { uid, newPassword } = req.body;
     const authHeader = req.headers.authorization;
 
+    console.log(`[${new Date().toISOString()}] POST /api/admin/update-password - UID: ${uid}`);
+
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.warn(`[${new Date().toISOString()}] No autorizado: Falta header de autorización`);
       return res.status(401).json({ error: "No autorizado" });
     }
 
@@ -322,14 +325,17 @@ async function startServer() {
       const isFirestoreAdmin = userData && userData.role === "admin";
 
       if (!isMainAdmin && !isFirestoreAdmin) {
+        console.warn(`[${new Date().toISOString()}] Permisos insuficientes: ${requesterEmail} no es admin`);
         return res.status(403).json({ error: "Permisos insuficientes" });
       }
 
+      console.log(`[${new Date().toISOString()}] Actualizando contraseña para UID: ${uid}`);
       // Update the target user's password
       await getAuth().updateUser(uid, {
         password: newPassword
       });
 
+      console.log(`[${new Date().toISOString()}] Contraseña actualizada con éxito para UID: ${uid}`);
       res.json({ message: "Contraseña actualizada con éxito" });
     } catch (error: any) {
       console.error("Error updating password:", error);
@@ -342,7 +348,10 @@ async function startServer() {
     const { email, password, displayName, role } = req.body;
     const authHeader = req.headers.authorization;
 
+    console.log(`[${new Date().toISOString()}] POST /api/admin/create-user - Email: ${email}`);
+
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.warn(`[${new Date().toISOString()}] No autorizado: Falta header de autorización`);
       return res.status(401).json({ error: "No autorizado" });
     }
 
